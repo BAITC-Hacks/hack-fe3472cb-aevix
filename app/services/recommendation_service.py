@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.db.models import ActivityHistory, CoinTransaction, Employee, Event, RoleProfile, Skill, Wallet
+from app.services.llm_service import explain_recommendations
+from app.services.quest_service import mark_quest_completed
 from app.utils.explainability import build_game_message
 from app.utils.grade import GRADE_ORDER, get_role_target, grade_index, next_grade
 from app.utils.scoring import clamp, derive_priority, expected_after, role_grade_relevance_score
@@ -82,7 +84,7 @@ def get_employee_profile(employee_id: str) -> dict[str, Any]:
         db.close()
 
 
-def get_employee_recommendations(employee_id: str, limit: int = 3) -> dict[str, Any]:
+def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool = True) -> dict[str, Any]:
     db: Session = SessionLocal()
     try:
         employee = db.get(Employee, employee_id)
@@ -193,6 +195,14 @@ def get_employee_recommendations(employee_id: str, limit: int = 3) -> dict[str, 
                 + history_score * 0.10
                 + prerequisite_score * 0.05
             )
+            scoring_factors = {
+                "skill_gap_score": round(skill_gap_score, 2),
+                "critical_skill_score": round(critical_skill_score, 2),
+                "event_impact_score": round(event_impact_score, 2),
+                "role_grade_relevance_score": round(role_grade_relevance, 2),
+                "history_score": round(history_score, 2),
+                "prerequisite_score": round(prerequisite_score, 2),
+            }
 
             why_recommended = [
                 f"{item['skill_name']} is {item['current_level']}, required level for {target_grade} is {item['required_level']}"
@@ -223,6 +233,7 @@ def get_employee_recommendations(employee_id: str, limit: int = 3) -> dict[str, 
                 "duration_hours": event.duration_hours,
                 "score": round(clamp(score), 2),
                 "priority": derive_priority(clamp(score)),
+                "scoring_factors": scoring_factors,
                 "why_recommended": why_recommended,
                 "affected_skills": [
                     {
@@ -250,6 +261,29 @@ def get_employee_recommendations(employee_id: str, limit: int = 3) -> dict[str, 
             })
 
         recommendations.sort(key=lambda item: item["score"], reverse=True)
+        recommendations = recommendations[:limit]
+        llm_result = explain_recommendations(
+            {
+                "role": employee.role,
+                "current_grade": employee.grade,
+                "target_role": target_role,
+                "target_grade": target_grade,
+                "progress_to_next_grade": _calculate_progress(employee, target_role, target_grade),
+            },
+            recommendations,
+        ) if use_llm else {
+            "provider": "template",
+            "summary": "Recommendations were calculated by the deterministic Career Quest engine.",
+            "recommendation_explanations": [],
+        }
+        explanations = {item["event_id"]: item for item in llm_result["recommendation_explanations"]}
+        for recommendation in recommendations:
+            generated = explanations.get(recommendation["event_id"])
+            if generated:
+                recommendation["explanation"] = generated["explanation"]
+                recommendation["employee_friendly_reason"] = generated["employee_friendly_reason"]
+                recommendation["risk_note"] = generated["risk_note"]
+                recommendation["expected_outcome"] = generated["expected_outcome"]
         response = {
             "employee_id": employee.employee_id,
             "role": employee.role,
@@ -257,7 +291,9 @@ def get_employee_recommendations(employee_id: str, limit: int = 3) -> dict[str, 
             "target_role": target_role,
             "target_grade": target_grade,
             "progress_to_next_grade": _calculate_progress(employee, target_role, target_grade),
-            "recommendations": recommendations[:limit],
+            "recommendations": recommendations,
+            "explanation_provider": llm_result["provider"],
+            "explanation_summary": llm_result["summary"],
         }
         return response
     finally:
@@ -358,6 +394,7 @@ def complete_quest(employee_id: str, event_id: str) -> dict[str, Any]:
             ))
             db.commit()
         wallet = db.get(Wallet, employee_id)
+        mark_quest_completed(employee_id, event_id)
         return {
             "employee_id": employee_id,
             "completed_quest": event.title,

@@ -20,6 +20,9 @@ Career City — только visualization/gamification layer поверх уж�
 - app/services — бизнес-логика импорта, рекомендаций, прогресса, игры, HR
 - app/routers — REST-endpoints
 - app/utils — утилиты для грейдов, scoring и explainability
+- app/services/llm_service.py — optional OpenAI explanation layer с template fallback
+- app/services/team_service.py — optional collaboration layer
+- app/services/esg_service.py — Growth Coins wallet и ESG Impact Catalog
 
 ## 3. Как положить датасет
 
@@ -38,6 +41,15 @@ set DATASET_DIR=C:\path\to\dataset
 ```bash
 export DATASET_DIR=/path/to/dataset
 ```
+
+Для optional LLM-объяснений используйте только переменные окружения или `.env`:
+
+```env
+OPENAI_API_KEY=your-key
+OPENAI_MODEL=gpt-6-astra
+```
+
+Без `OPENAI_API_KEY` backend работает через локальный template explanation. Deterministic engine всегда выбирает события и считает score; OpenAI только формулирует объяснение.
 
 Поддерживаются файлы:
 
@@ -83,12 +95,17 @@ uvicorn app.main:app --reload
 - POST /api/import/events
 - POST /api/import/skills
 - POST /api/import/history
+- POST /api/import/check-profiles
+- POST /api/import/check-history
+- POST /api/import/jury-dataset
 - GET /api/employees
+- POST /api/employees/register
 - GET /api/employees/{employee_id}
 - GET /api/employees/{employee_id}/profile
 - GET /api/employees/{employee_id}/trajectory
 - GET /api/employees/{employee_id}/recommendations
 - POST /api/employees/{employee_id}/quests/{event_id}/complete
+- POST /api/employees/{employee_id}/quests/{event_id}/select
 - GET /api/game/{employee_id}/map
 - GET /api/game/{employee_id}/progress
 - GET /api/game/{employee_id}/quests
@@ -96,6 +113,17 @@ uvicorn app.main:app --reload
 - GET /api/hr/skill-gaps
 - GET /api/hr/inactive-employees
 - GET /api/hr/events-effectiveness
+- POST /api/teams
+- GET /api/teams/{team_id}
+- POST /api/teams/{team_id}/join
+- POST /api/teams/{team_id}/quests/{event_id}/start
+- POST /api/teams/{team_id}/quests/{event_id}/complete
+- POST /api/teams/{team_id}/pause
+- POST /api/teams/{team_id}/resume
+- GET /api/wallet/{employee_id}
+- GET /api/esg-goals
+- POST /api/esg-goals/{goal_id}/contribute
+- GET /api/hr/esg-engagement
 
 ## 7. Примеры request/response
 
@@ -146,6 +174,14 @@ curl http://127.0.0.1:8000/api/employees/E0002/recommendations
       "type": "workshop",
       "score": 0.91,
       "priority": "high",
+      "scoring_factors": {
+        "skill_gap_score": 0.9,
+        "critical_skill_score": 1.0,
+        "event_impact_score": 0.8,
+        "role_grade_relevance_score": 0.9,
+        "history_score": 0.7,
+        "prerequisite_score": 1.0
+      },
       "why_recommended": [
         "System Design is 1, required level for Senior is 4",
         "This is a critical skill for the target grade",
@@ -173,6 +209,17 @@ curl http://127.0.0.1:8000/api/employees/E0002/recommendations
   ]
 }
 ```
+
+После импорта jury-профиля рекомендации доступны сразу:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/import/check-profiles -F "file=@employees.json"
+curl http://127.0.0.1:8000/api/employees/E_TEST_001/recommendations
+```
+
+Для полного набора файлов можно использовать `multipart/form-data` endpoint `/api/import/jury-dataset` с полями `employees`, `history`, `events`, `skills`. Импорт идемпотентный и обновляет записи по `employee_id`/`record_id`.
+
+Регистрация одного сотрудника выполняется через `POST /api/employees/register` с тем же форматом профиля, что и в `employees.json`.
 
 Завершение добровольного квеста возвращает обновление навыков, progress и Growth Coins:
 
@@ -231,7 +278,13 @@ Game service не рассчитывает score и не выбирает соб
 
 Это позволяет сотруднику видеть прогресс как карьерную карту, но объяснение остаётся в рекомендациях, а не только в анимации.
 
-## 10. Как проверить на профиле E0002
+## 10. Команды, coins и ESG
+
+Команды являются optional collaboration layer: создатель добавляет участников, команда запускает и завершает квесты, может быть поставлена на паузу или перейти в `waiting_for_member` после трёх командных квестов. Командная механика не меняет AI score.
+
+Growth Coins не являются деньгами и не формируют рейтинг сотрудников. Их можно потратить на ESG-инициативы после проверки HR: mentoring, Green Office, образовательную программу или workshop. API возвращает `pending_hr_review`, а HR видит только агрегированную вовлечённость через `/api/hr/esg-engagement`.
+
+## 11. Как проверить на профиле E0002
 
 ```bash
 curl http://127.0.0.1:8000/api/employees/E0002/recommendations
@@ -244,13 +297,13 @@ curl http://127.0.0.1:8000/api/game/E0002/map
 curl http://127.0.0.1:8000/api/hr/dashboard
 ```
 
-## Тест
+## 12. Тест
 
 ```bash
 python -m pytest app/tests/test_recommendation.py -q
 ```
 
-## Ограничения и принципы
+## 13. Ограничения и принципы
 
 - Employee видит только себя.
 - HR видит только агрегированную аналитику.

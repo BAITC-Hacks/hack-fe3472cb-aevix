@@ -6,8 +6,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
-from app.db.models import ActivityHistory, Employee, Event, RoleProfile
+from app.db.models import ActivityHistory, Employee, Event, ESGContribution, RoleProfile, Team
 from app.services.progress_service import compute_progress_to_next_grade
+from app.services.recommendation_service import get_employee_recommendations
 
 
 def get_hr_dashboard() -> dict[str, Any]:
@@ -56,6 +57,19 @@ def get_hr_dashboard() -> dict[str, Any]:
         popular = Counter(row.event_id for row in db.query(ActivityHistory).all())
         popular_events = [{"event_id": event_id, "count": count} for event_id, count in popular.most_common(5)]
         risky_segments = ["Junior", "Middle"] if employees else []
+        participation_by_activity = [
+            {"event_id": event_id, "participations": count}
+            for event_id, count in popular.most_common()
+        ]
+        employees_without_recommendations = []
+        for employee in employees:
+            if not get_employee_recommendations(employee.employee_id, use_llm=False).get("recommendations"):
+                employees_without_recommendations.append(employee.employee_id)
+        esg_rows = db.query(ESGContribution).all()
+        team_activity = {
+            "teams_count": db.query(Team).count(),
+            "completed_team_quests": sum(team.completed_team_quests for team in db.query(Team).all()),
+        }
 
         return {
             "total_employees": total_employees,
@@ -65,6 +79,13 @@ def get_hr_dashboard() -> dict[str, Any]:
             "events_completion_rate": completion_rate,
             "popular_events": popular_events,
             "risky_segments": risky_segments,
+            "employees_without_recommendations": employees_without_recommendations,
+            "participation_by_activity": participation_by_activity,
+            "esg_engagement": {
+                "total_contributed_coins": sum(row.coins for row in esg_rows),
+                "contributors_count": len({row.employee_id for row in esg_rows}),
+            },
+            "team_quest_activity": team_activity,
         }
     finally:
         db.close()

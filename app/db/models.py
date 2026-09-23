@@ -97,3 +97,56 @@ class CoinTransaction(Base):
     amount = Column(Integer, nullable=False)
     reason = Column(Text, nullable=False)
     created_at = Column(Date, nullable=False)
+
+
+class QuestProgress(Base):
+    __tablename__ = "quest_progress"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    employee_id = Column(String, ForeignKey("employees.employee_id"), nullable=False)
+    event_id = Column(String, ForeignKey("events.event_id"), nullable=False)
+    status = Column(String, nullable=False, default="recommended")
+    mode = Column(String, nullable=False, default="solo")
+    started_at = Column(Date, nullable=True)
+    completed_at = Column(Date, nullable=True)
+
+
+class Team(Base):
+    __tablename__ = "teams"
+
+    team_id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    creator_id = Column(String, ForeignKey("employees.employee_id"), nullable=False)
+    max_members = Column(Integer, nullable=False, default=5)
+    status = Column(String, nullable=False, default="active")
+    completed_team_quests = Column(Integer, nullable=False, default=0)
+
+
+class TeamMember(Base):
+    __tablename__ = "team_members"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(String, ForeignKey("teams.team_id"), nullable=False)
+    employee_id = Column(String, ForeignKey("employees.employee_id"), nullable=False)
+
+
+class ESGGoal(Base):
+    __tablename__ = "esg_goals"
+
+    goal_id = Column(String, primary_key=True)
+    title = Column(String, nullable=False)
+    category = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    target_coins = Column(Integer, nullable=False, default=0)
+    status = Column(String, nullable=False, default="pending_hr_review")
+
+
+class ESGContribution(Base):
+    __tablename__ = "esg_contributions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    goal_id = Column(String, ForeignKey("esg_goals.goal_id"), nullable=False)
+    employee_id = Column(String, ForeignKey("employees.employee_id"), nullable=False)
+    coins = Column(Integer, nullable=False)
+    status = Column(String, nullable=False, default="pending_hr_review")
+    created_at = Column(Date, nullable=False)
