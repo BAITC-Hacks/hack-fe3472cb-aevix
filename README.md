@@ -221,3 +221,4 @@ python -m pytest app/tests/test_recommendation.py -q
 - Данные синтетические.
 - Детерминированный fallback engine обязателен.
 - Нет публичного рейтинга сотрудников.
+
