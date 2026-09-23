@@ -15,7 +15,7 @@ from app.services.import_service import seed_demo_data
 def isolated_database(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "openai_api_key", None)
     engine = create_engine(f"sqlite:///{tmp_path / 'workspace.sqlite'}")
-    factory = sessionmaker(bind=engine)
+    factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(database, "engine", engine)
     for name, module in list(sys.modules.items()):
         if (name.startswith("app.") or name.startswith("test_")) and hasattr(module, "SessionLocal"):

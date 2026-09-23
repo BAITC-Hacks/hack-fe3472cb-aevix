@@ -59,14 +59,15 @@ def _records(payload: dict, key: str, schema, required: tuple[str, ...]) -> list
     for index, item in enumerate(items):
         if not isinstance(item, dict) or any(not isinstance(item.get(field), str) or not item[field].strip() for field in required):
             raise HTTPException(status_code=422, detail=f"{key}[{index}]: required fields: {', '.join(required)}")
-        identity = tuple(item[field] for field in required[:2 if key == "role_profiles" else 1])
-        if identity in seen:
-            raise HTTPException(status_code=422, detail=f"{key}[{index}]: duplicate identifier")
-        seen.add(identity)
         try:
             record = schema.model_validate(item).model_dump()
         except ValidationError as exc:
             raise HTTPException(status_code=422, detail=f"{key}[{index}]: invalid field values") from exc
+        # Check the values that will be stored: schemas can normalize identifiers.
+        identity = tuple(record[field] for field in required[:2 if key == "role_profiles" else 1])
+        if identity in seen:
+            raise HTTPException(status_code=422, detail=f"{key}[{index}]: duplicate identifier")
+        seen.add(identity)
         result.append(record)
     return result
 

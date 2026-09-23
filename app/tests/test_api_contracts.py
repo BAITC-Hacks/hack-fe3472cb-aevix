@@ -192,3 +192,49 @@ def test_registered_employee_can_select_and_complete_quest_over_http(client):
 ])
 def test_unknown_employee_is_a_404(client, path):
     assert client.get(path).status_code == 404
+
+
+@pytest.mark.parametrize('route,key,records', [
+    ('employees', 'employees', [
+        {'employee_id': 'IMPORT_DUPLICATE', 'full_name': 'First'},
+        {'employee_id': ' IMPORT_DUPLICATE ', 'full_name': 'Second'},
+    ]),
+    ('events', 'events', [
+        {'event_id': 'IMPORT_DUPLICATE', 'title': 'First'},
+        {'event_id': ' IMPORT_DUPLICATE ', 'title': 'Second'},
+    ]),
+])
+def test_import_rejects_duplicate_identifiers_after_normalization(client, route, key, records):
+    response = client.post(f'/api/import/{route}', files={
+        'file': (f'{route}.json', json.dumps({key: records})),
+    })
+    assert response.status_code == 422, response.text
+    assert 'duplicate identifier' in response.json()['detail']
+    with SessionLocal() as db:
+        model = Employee if route == 'employees' else Event
+        assert db.get(model, 'IMPORT_DUPLICATE') is None
+
+
+@pytest.mark.parametrize('invalid_fields', [
+    {'duration_hours': -1},
+    {'duration_hours': float('nan')},
+    {'duration_hours': float('inf')},
+    {'develops_skills': [{'skill_id': 'SK_PYTHON', 'gain': -1}]},
+    {'develops_skills': [{'skill_id': 'SK_PYTHON', 'max_level': -1}]},
+    {'develops_skills': [{'skill_id': 'SK_PYTHON', 'max_level': 6}]},
+    {'develops_skills': [{'skill_id': ' ', 'gain': 1}]},
+    {'prerequisites': {'SK_PYTHON': -1}},
+    {'prerequisites': {'SK_PYTHON': 6}},
+])
+def test_event_import_rejects_values_that_break_quest_rewards_and_skills(client, invalid_fields):
+    records = [
+        {'event_id': 'IMPORT_VALID_EVENT', 'title': 'Valid first row'},
+        {'event_id': 'IMPORT_BAD_EVENT', 'title': 'Invalid second row', **invalid_fields},
+    ]
+    response = client.post('/api/import/events', files={
+        'file': ('events.json', json.dumps({'events': records})),
+    })
+    assert response.status_code == 422, response.text
+    with SessionLocal() as db:
+        assert db.get(Event, 'IMPORT_VALID_EVENT') is None
+        assert db.get(Event, 'IMPORT_BAD_EVENT') is None
