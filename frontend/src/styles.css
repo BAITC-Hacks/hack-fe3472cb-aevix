@@ -1767,29 +1767,29 @@ progress::-webkit-progress-value {
 .city-career-progress small, .city-career-progress span { font-size: 11px; color: var(--text-2); }
 .city-career-progress strong { font-size: 22px; }
 .city-evolution { min-width: 0; width: 100%; max-width: 540px; justify-self: end; border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
-.city-evolution-scene { color: #f3f8f7; padding: 18px 20px 22px; background: #0d171c; }
-.city-art-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 10px; color: #a7bbc1; }
+.city-evolution-scene { color: #19332d; padding: 24px; background: #fff; }
+.city-art-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: #546f61; }
 .city-art-status strong { color: #8fe4c8; font-size: 11px; background: #1d3436; padding: 5px 9px; border-radius: 20px; }
-.city-level-art { display: block; width: min(100%, 280px); height: auto; margin: -12px auto 0; }
+.city-level-art { display: block; width: min(100%, 320px); height: auto; margin: 0 auto; border-radius: 14px; background: #fff; }
 .city-art-caption { text-align: center; }
-.city-art-caption h3 { margin: 8px 0 6px; color: #f4f8f8; font-size: 18px; }
-.city-art-caption > span { color: #a7bbc1; font-size: 10px; }
-.city-art-caption .text-button { color: #91e6c5; font-size: 11px; justify-content: center; min-height: 44px; }
-.city-level-progress { padding: 16px 20px 12px; }
-.city-level-progress > div { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
-.city-level-progress > div > span { color: var(--text-2); }
-.city-level-progress progress { width: 100%; height: 5px; margin-top: 11px; }
+.city-art-caption h3 { margin: 8px 0; color: #19332d; font-size: 22px; }
+.city-art-caption > span { display: block; color: #546f61; font-size: 12px; line-height: 1.6; }
+.city-art-caption .text-button { color: #086653; font-size: 11px; justify-content: center; min-height: 44px; }
+.city-level-progress { padding: 22px 24px; background: var(--surface); border-top: 1px solid var(--border); }
+.city-level-progress > .city-progress-label { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
+.city-progress-label > span { color: var(--text-2); }
+.city-level-progress progress { width: 100%; height: 8px; margin-top: 11px; }
 .city-level-progress p { font-size: 11px; margin: 6px 0 0; color: var(--text-2); }
 .city-level-progress p strong { color: var(--primary); }
-.city-level-gallery { border-top: 1px solid var(--border); }
-.city-level-gallery summary { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 13px 20px; cursor: pointer; list-style: none; color: var(--primary); font-size: 11px; font-weight: 600; }
+.city-level-gallery { border-top: 1px solid var(--border); background: var(--surface); }
+.city-level-gallery summary { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 16px 24px; cursor: pointer; list-style: none; color: var(--primary); font-size: 12px; font-weight: 600; }
 .city-level-gallery summary::-webkit-details-marker { display: none; }
 .city-level-gallery[open] summary > svg { transform: rotate(180deg); }
-.city-level-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 0 10px 12px; gap: 6px; }
-.city-level-option { min-width: 0; padding: 4px 3px 8px; border: 2px solid transparent; border-radius: 8px; background: #0d171c; color: #c5d6d8; }
+.city-level-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 0 16px 20px; gap: 10px; }
+.city-level-option { min-width: 0; padding: 6px 5px 10px; border: 2px solid #e2e9e5; border-radius: 12px; background: #fff; color: #385448; display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
 .city-level-option .city-level-art { width: 100%; margin: 0; }
-.city-level-option > span { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 8px; white-space: nowrap; }
-.city-level-option.selected { border-color: var(--primary-2); color: #96efd4; }
+.city-level-option > span { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 11px; flex-wrap: wrap; }
+.city-level-option.selected { border-color: #27835f; color: #086653; box-shadow: 0 0 0 2px #27835f1a; }
 .city-level-option:hover { border-color: #75a89d; }
 @media (max-width: 1100px) {
   .city-overview.city-with-evolution { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 18px; padding: 20px; }
@@ -1810,7 +1810,6 @@ progress::-webkit-progress-value {
 @media (max-width: 380px) {
   .city-overview.city-with-evolution { padding: 14px; }
   .city-evolution-scene { padding-left: 12px; padding-right: 12px; }
-  .city-level-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .city-level-option > span { font-size: 10px; }
 }
 
@@ -1862,7 +1861,6 @@ progress::-webkit-progress-value {
 .filter-pills button { flex: 1 1 auto; min-width: 44px; }
 .quest-details summary, .city-level-gallery summary { min-height: 44px; }
 .city-art-caption .text-button { margin-inline: auto; text-align: center; }
-.city-level-options { grid-template-columns: repeat(auto-fit, minmax(min(64px, 100%), 1fr)); }
 .city-level-option { min-height: 44px; }
 .bottom-nav button, .mobile-menu { min-height: 48px; min-width: 0; line-height: 1.4; overflow-wrap: anywhere; }
 .recommendation-context > .text-button { flex-shrink: 1; }
@@ -1911,4 +1909,30 @@ progress::-webkit-progress-value {
 }
 @media (max-width: 720px) {
   .city-insights { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Level illustrations stay on white in both themes. */
+.city-evolution-scene { background: #fff; color: #19332d; }
+.city-art-status { color: #546f61; flex-wrap: wrap; }
+.city-art-status > span { display: inline-flex; align-items: center; gap: 6px; }
+.city-art-status strong { color: #086653; background: #d6eadd; }
+.city-art-caption h3 { color: #19332d; }
+.city-art-caption > span { color: #546f61; }
+.city-art-caption .text-button { color: #086653; }
+.city-level-option { background: #fff; color: #385448; }
+.city-level-option.selected { color: #086653; border-color: #27835f; }
+
+.city-evolution { container: city-evolution / inline-size; box-shadow: var(--shadow); }
+.city-level-option small { min-height: 3.9em; font-size: 10px; line-height: 1.3; color: #546f61; overflow-wrap: anywhere; }
+.city-level-option .city-level-art { border-radius: 8px; }
+.city-growth-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+.city-growth-stats > div { display: flex; flex-direction: column; gap: 6px; }
+.city-growth-stats > div + div { border-left: 1px solid var(--border); padding-left: 16px; }
+.city-growth-stats strong { font-size: 26px; line-height: 1.1; color: var(--primary); }
+.city-growth-stats span { font-size: 11px; line-height: 1.5; color: var(--text-2); }
+@container city-evolution (max-width: 420px) {
+  .city-level-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .city-level-option small { min-height: 2.6em; font-size: 11px; }
+  .city-evolution-scene { padding: 18px; }
+  .city-level-progress { padding: 20px 18px; }
 }

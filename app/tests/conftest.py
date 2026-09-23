@@ -6,12 +6,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db import database
+from app.core.config import settings
 from app.services import hr_service  # Load its SessionLocal before patching aliases.
 from app.services.import_service import seed_demo_data
 
 
 @pytest.fixture(autouse=True)
 def isolated_database(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", None)
     engine = create_engine(f"sqlite:///{tmp_path / 'workspace.sqlite'}")
     factory = sessionmaker(bind=engine)
     monkeypatch.setattr(database, "engine", engine)

@@ -7,7 +7,7 @@ import './wallet.css'
 const copy = {
   ru: {
     title: 'Ваш вклад начинается с роста', subtitle: 'Учитесь, получайте Growth Coins и поддерживайте общие инициативы.',
-    balance: 'Доступный баланс', earned: 'Награды за развитие', earnHint: 'Growth Coins начисляются за новые завершённые добровольные квесты. Обязательное обучение не приносит монеты.',
+    balance: 'Доступный баланс', refresh: 'Обновить баланс', earned: 'Награды за развитие', earnHint: 'Growth Coins начисляются за новые завершённые добровольные квесты. Обязательное обучение не приносит монеты.',
     history: 'Последние операции', noHistory: 'Завершите добровольный квест — здесь появится первая награда.', reward: 'Награда за квест', contribution: 'Поддержка инициативы',
     goals: 'Инициативы ESG', goalHint: 'Выберите, во что превратить свой прогресс.', noGoals: 'Пока нет доступных инициатив.',
     pending: 'На проверке HR', active: 'Активна', approved: 'Одобрена HR', completed: 'Завершена', unknown: 'Статус уточняется',
@@ -20,7 +20,7 @@ const copy = {
   },
   kk: {
     title: 'Сіздің үлесіңіз дамудан басталады', subtitle: 'Оқыңыз, Growth Coins жинаңыз және ортақ бастамаларды қолдаңыз.',
-    balance: 'Қолжетімді баланс', earned: 'Даму үшін марапат', earnHint: 'Growth Coins жаңадан аяқталған ерікті квесттер үшін беріледі. Міндетті оқу үшін монеталар берілмейді.',
+    balance: 'Қолжетімді баланс', refresh: 'Балансты жаңарту', earned: 'Даму үшін марапат', earnHint: 'Growth Coins жаңадан аяқталған ерікті квесттер үшін беріледі. Міндетті оқу үшін монеталар берілмейді.',
     history: 'Соңғы операциялар', noHistory: 'Ерікті квестті аяқтаңыз — алғашқы марапат осында көрсетіледі.', reward: 'Квест үшін марапат', contribution: 'Бастаманы қолдау',
     goals: 'ESG бастамалары', goalHint: 'Дамуыңыздың қай іске үлес қосатынын таңдаңыз.', noGoals: 'Әзірге қолжетімді бастамалар жоқ.',
     pending: 'HR тексеруінде', active: 'Белсенді', approved: 'HR мақұлдаған', completed: 'Аяқталды', unknown: 'Мәртебесі нақтылануда',
@@ -33,7 +33,7 @@ const copy = {
   },
   en: {
     title: 'Turn your growth into impact', subtitle: 'Learn, earn Growth Coins and support shared initiatives.',
-    balance: 'Available balance', earned: 'Rewards for growth', earnHint: 'Earn Growth Coins for newly completed voluntary quests. Mandatory training does not earn coins.',
+    balance: 'Available balance', refresh: 'Refresh balance', earned: 'Rewards for growth', earnHint: 'Earn Growth Coins for newly completed voluntary quests. Mandatory training does not earn coins.',
     history: 'Recent transactions', noHistory: 'Complete a voluntary quest to see your first reward here.', reward: 'Quest reward', contribution: 'Initiative contribution',
     goals: 'ESG initiatives', goalHint: 'Choose where your progress makes a difference.', noGoals: 'No initiatives are available yet.',
     pending: 'Pending HR review', active: 'Active', approved: 'Approved by HR', completed: 'Completed', unknown: 'Status to be confirmed',
@@ -126,7 +126,7 @@ function WalletContent({ employeeId, onBalanceChange }: Props) {
       <aside className="card growth-wallet-account" aria-label={c.balance}>
         <span className="growth-wallet-eyebrow">{c.earned}</span>
         <div className="growth-wallet-balance" aria-live="polite"><strong>{wallet ? number(wallet.balance) : '—'}</strong><span>Growth Coins</span></div>
-        <p className="growth-wallet-balance-label">{c.balance}</p>
+        <div className="growth-wallet-balance-actions"><p className="growth-wallet-balance-label">{c.balance}</p><button className="text-button" disabled={loading || !!busy} onClick={() => { setMessage(null); void refresh() }}>{c.refresh}</button></div>
         <p className="growth-wallet-hint">{c.earnHint}</p>
         {loading && <p role="status" className="growth-wallet-hint">{t('loading')}</p>}
         {walletError && <div className="growth-wallet-error" role="alert"><p>{c.walletError}</p><button className="text-button" disabled={loading || !!busy} onClick={() => void refresh()}>{t('retry')}</button></div>}
@@ -154,9 +154,9 @@ function WalletContent({ employeeId, onBalanceChange }: Props) {
               {goal.description && <p className="growth-wallet-hint">{goal.description}</p>}
               <div className="growth-wallet-goal-stats"><span>{c.total}<strong>{number(goal.total_contributed_coins)} GC</strong></span><span>{c.people}<strong>{number(goal.contributors_count)}</strong></span></div>
               {goal.target_coins != null && goal.target_coins > 0 && <progress aria-label={`${c.total}: ${number(goal.total_contributed_coins)} / ${number(goal.target_coins)} GC`} value={Math.min(goal.total_contributed_coins, goal.target_coins)} max={goal.target_coins} />}
-              <form className="growth-wallet-form" onSubmit={(event) => void contribute(event, goal)}>
+              <form className="growth-wallet-form" aria-busy={busy === goal.goal_id} onSubmit={(event) => void contribute(event, goal)}>
                 <label htmlFor={`${id}-${goal.goal_id}`}>{c.amount}</label>
-                <div><input id={`${id}-${goal.goal_id}`} type="number" inputMode="numeric" min="1" max={wallet?.balance ?? 0} step="1" required placeholder="10" value={amounts[goal.goal_id] ?? ''} disabled={!!busy || loading || walletError || !wallet?.balance} onChange={(event) => setAmounts((previous) => ({ ...previous, [goal.goal_id]: event.target.value }))} aria-describedby={`${id}-spend-note`} /><button className="btn" type="submit" disabled={!!busy || loading || walletError || !valid}>{busy === goal.goal_id ? c.submitting : c.support}<Icon name="arrow" size={15} /></button></div>
+                <div><input id={`${id}-${goal.goal_id}`} type="number" inputMode="numeric" min="1" max={wallet?.balance ?? 0} step="1" required placeholder="10" value={amounts[goal.goal_id] ?? ''} disabled={!!busy || loading || walletError || !wallet?.balance} onChange={(event) => { setAmounts((previous) => ({ ...previous, [goal.goal_id]: event.target.value })); setMessage(null) }} aria-describedby={`${id}-spend-note`} /><button className="btn" type="submit" aria-busy={busy === goal.goal_id} disabled={!!busy || loading || walletError || !valid}>{busy === goal.goal_id ? c.submitting : c.support}<Icon name="arrow" size={15} /></button></div>
               </form>
               {wallet?.balance === 0 && <p className="growth-wallet-hint">{c.needCoins}</p>}
             </div>

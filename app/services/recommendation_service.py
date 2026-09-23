@@ -10,7 +10,7 @@ from app.db.database import SessionLocal
 from app.db.models import ActivityHistory, CoinTransaction, Employee, Event, RoleProfile, Skill, Wallet
 from app.services.llm_service import explain_recommendations
 from app.services.progress_service import compute_progress_to_next_grade as _calculate_progress
-from app.services.quest_service import completion_is_current, mark_quest_completed
+from app.services.quest_service import check_prerequisites, completion_is_current, mark_quest_completed, quest_transaction
 from app.utils.explainability import build_game_message
 from app.utils.grade import get_role_target
 from app.utils.scoring import clamp, derive_priority, expected_after, role_grade_relevance_score
@@ -299,17 +299,18 @@ def get_employee_trajectory(employee_id: str) -> list[dict[str, Any]]:
 
 def complete_quest(employee_id: str, event_id: str) -> dict[str, Any]:
     # History, skills, wallet and selection must succeed or roll back together.
-    with SessionLocal.begin() as db:
+    with quest_transaction() as db:
         return _complete_quest(db, employee_id, event_id)
 
 
 def _complete_quest(db: Session, employee_id: str, event_id: str) -> dict[str, Any]:
-    employee = db.get(Employee, employee_id)
+    employee = db.query(Employee).filter_by(employee_id=employee_id).with_for_update().first()
     event = db.get(Event, event_id)
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+    check_prerequisites(employee, event)
 
     history = db.query(ActivityHistory).filter_by(employee_id=employee_id, event_id=event_id).all()
     if completion_is_current(event, history):
@@ -377,9 +378,11 @@ def _complete_quest(db: Session, employee_id: str, event_id: str) -> dict[str, A
             coin_reason += ", skill gap reduced"
         wallet = db.get(Wallet, employee_id)
         if wallet is None:
-            wallet = Wallet(employee_id=employee_id, balance=0)
+            wallet = Wallet(employee_id=employee_id, balance=coins_earned)
             db.add(wallet)
-        wallet.balance += coins_earned
+        else:
+            # Keep a simultaneous ESG debit instead of overwriting its balance.
+            wallet.balance = Wallet.balance + coins_earned
         db.add(CoinTransaction(
             transaction_id=f"TX_{employee_id}_{event_id}_{record_id}",
             employee_id=employee_id,

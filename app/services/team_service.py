@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
 from app.db.models import Employee, Event, Team, TeamMember
-from app.services.quest_service import _select_quest
+from app.services.quest_service import _select_quest, quest_transaction
 from app.services.recommendation_service import _complete_quest
 
 
@@ -81,7 +81,7 @@ def join_team(team_id: str, employee_id: str) -> dict[str, Any]:
 
 
 def start_team_quest(team_id: str, event_id: str) -> dict[str, Any]:
-    with SessionLocal.begin() as db:
+    with quest_transaction() as db:
         team = _get_team(db, team_id)
         if not db.get(Event, event_id):
             raise HTTPException(status_code=404, detail="Event not found")
@@ -97,7 +97,7 @@ def start_team_quest(team_id: str, event_id: str) -> dict[str, Any]:
 
 
 def complete_team_quest(team_id: str, event_id: str) -> dict[str, Any]:
-    with SessionLocal.begin() as db:
+    with quest_transaction() as db:
         team = _get_team(db, team_id)
         if not db.get(Event, event_id):
             raise HTTPException(status_code=404, detail="Event not found")

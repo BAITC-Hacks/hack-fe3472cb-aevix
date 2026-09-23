@@ -1,14 +1,32 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Iterator
 from uuid import uuid4
 
 from fastapi import HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
 from app.db.models import ActivityHistory, Employee, Event, QuestProgress
+
+
+@contextmanager
+def quest_transaction() -> Iterator[Session]:
+    with SessionLocal.begin() as db:
+        if db.get_bind().dialect.name == "sqlite":
+            # Acquire the write lock before reading history. Two simultaneous
+            # completions must not both observe an uncompleted quest.
+            db.execute(text("BEGIN IMMEDIATE"))
+        yield db
+
+
+def check_prerequisites(employee: Employee, event: Event) -> None:
+    if any(int((employee.skills or {}).get(skill_id, 0)) < int(level)
+           for skill_id, level in (event.prerequisites or {}).items()):
+        raise HTTPException(status_code=409, detail="Quest prerequisites are not met")
 
 
 def completion_is_current(event: Event, history: list[ActivityHistory]) -> bool:
@@ -24,11 +42,13 @@ def completion_is_current(event: Event, history: list[ActivityHistory]) -> bool:
 def _select_quest(db: Session, employee_id: str, event_id: str, mode: str = "solo") -> dict[str, Any]:
     if mode not in {"solo", "team"}:
         raise HTTPException(status_code=422, detail="mode must be solo or team")
-    if not db.get(Employee, employee_id):
+    employee = db.query(Employee).filter_by(employee_id=employee_id).with_for_update().first()
+    if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
     event = db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+    check_prerequisites(employee, event)
     history = db.query(ActivityHistory).filter_by(employee_id=employee_id, event_id=event_id).all()
     if completion_is_current(event, history):
         raise HTTPException(status_code=409, detail="Quest already completed")
@@ -41,7 +61,12 @@ def _select_quest(db: Session, employee_id: str, event_id: str, mode: str = "sol
         progress.mode = mode
     progress.started_at = progress.started_at or date.today()
     progress.completed_at = None
-    if not any(entry.status in {"selected", "registered", "in_progress", "overdue"} for entry in history):
+    active = [entry for entry in history if entry.status in {"selected", "registered", "in_progress", "overdue"}]
+    for entry in active:
+        if entry.status in {"selected", "registered"}:
+            entry.status = "in_progress"
+            entry.completion_pct = entry.completion_pct or 0
+    if not active:
         db.add(ActivityHistory(
             record_id=f"R_{uuid4().hex}", employee_id=employee_id, event_id=event_id,
             date=date.today(), status="in_progress", completion_pct=0, assigned_by="self",
@@ -57,7 +82,7 @@ def _select_quest(db: Session, employee_id: str, event_id: str, mode: str = "sol
 
 
 def select_quest(employee_id: str, event_id: str, mode: str = "solo") -> dict[str, Any]:
-    with SessionLocal.begin() as db:
+    with quest_transaction() as db:
         return _select_quest(db, employee_id, event_id, mode)
 
 

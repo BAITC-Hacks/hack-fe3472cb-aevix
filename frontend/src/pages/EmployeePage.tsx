@@ -24,9 +24,9 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   const busyRef = useRef(false)
   const loadVersion = useRef(0)
   const copy = {
-    ru: { selected: 'Занятие добавлено в ваше обучение', refresh: 'Не удалось обновить данные. Повторите загрузку.', failed: 'Не удалось сохранить изменение. Попробуйте ещё раз.', duplicate: 'Это занятие уже завершено. Обновили ваш прогресс.' },
-    kk: { selected: 'Сабақ оқуыңызға қосылды', refresh: 'Деректер жаңартылмады. Қайта жүктеп көріңіз.', failed: 'Өзгеріс сақталмады. Қайта көріңіз.', duplicate: 'Бұл сабақ аяқталған. Прогресіңіз жаңартылды.' },
-    en: { selected: 'Activity added to your learning', refresh: 'Could not refresh your data. Please try again.', failed: 'Could not save the change. Please try again.', duplicate: 'This activity was already completed. Your progress has been refreshed.' },
+    ru: { selected: 'Занятие добавлено в ваше обучение', refresh: 'Не удалось обновить данные. Повторите загрузку.', failed: 'Не удалось сохранить изменение. Попробуйте ещё раз.', duplicate: 'Это занятие уже завершено.', prerequisites: 'Для этого занятия сначала нужно развить базовые навыки. Проверьте рекомендации.' },
+    kk: { selected: 'Сабақ оқуыңызға қосылды', refresh: 'Деректер жаңартылмады. Қайта жүктеп көріңіз.', failed: 'Өзгеріс сақталмады. Қайта көріңіз.', duplicate: 'Бұл сабақ аяқталған.', prerequisites: 'Бұл сабақ үшін алдымен негізгі дағдыларды дамыту қажет. Ұсыныстарды қараңыз.' },
+    en: { selected: 'Activity added to your learning', refresh: 'Could not refresh your data. Please try again.', failed: 'Could not save the change. Please try again.', duplicate: 'This activity was already completed.', prerequisites: 'Build the prerequisite skills before taking this activity. Check your recommendations.' },
   }[lang]
 
   const mounted = useRef(true)
@@ -67,12 +67,12 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
       onToast(
         `${t('toast_done')}: ${res.completed_quest} · ${Math.round(res.progress_to_next_grade_before)}% → ${Math.round(
           res.progress_to_next_grade_after,
-        )}%${res.coins_earned ? ` · +${res.coins_earned} ${c.balance.toLowerCase()}` : ''}`,
+        )}%${res.coins_earned ? ` · +${res.coins_earned} Growth Coins` : ''}`,
       )
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) await load()
       if (!mounted.current) return
-      onToast(`⚠ ${e instanceof ApiError && e.status === 409 ? copy.duplicate : copy.failed}`)
+      onToast(`⚠ ${e instanceof ApiError && e.message === 'Quest already completed' ? copy.duplicate : e instanceof ApiError && e.message === 'Quest prerequisites are not met' ? copy.prerequisites : copy.failed}`)
     } finally {
       busyRef.current = false
       if (mounted.current) setBusy(null)
@@ -89,7 +89,7 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
       if (mounted.current) onToast(copy.selected)
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) await load()
-      if (mounted.current) onToast(`⚠ ${copy.failed}`)
+      if (mounted.current) onToast(`⚠ ${e instanceof ApiError && e.message === 'Quest prerequisites are not met' ? copy.prerequisites : copy.failed}`)
     } finally {
       busyRef.current = false
       if (mounted.current) setBusy(null)

@@ -37,16 +37,20 @@ export function CityEvolution({ progress }: { progress: CityProgress }) {
   const level = previewLevel ?? progress.level
   const previewing = level !== progress.level
   const name = levelNames[lang][level - 1]
+  const atMaximum = progress.level === progress.max_level
   return <section className="city-evolution" aria-label={c.growth}>
     <div className="city-evolution-scene">
       <div className="city-art-status"><span><Icon name="city" size={16} />{previewing ? c.preview : c.earned}</span><strong>{c.level} {level} / {CITY_LEVEL_COUNT}</strong></div>
       <CityLevelArtwork key={level} level={level} label={`${c.level} ${level}: ${name}`} />
-      <div className="city-art-caption"><h3>{name}</h3>{previewing ? <button onClick={() => setPreviewLevel(null)} className="text-button">{c.restore}<Icon name="arrow" size={15} /></button> : <span>{c.rule}</span>}</div>
+      <div className="city-art-caption" aria-live="polite"><h3>{name}</h3>{previewing ? <><span>{c.earned}: {progress.level}</span><button onClick={() => setPreviewLevel(null)} className="text-button">{c.restore}<Icon name="arrow" size={15} /></button></> : <span>{c.rule}</span>}</div>
     </div>
     <div className="city-level-progress" aria-live="polite">
-      <div><span>{progress.level === progress.max_level ? c.growth : c.nextProgress}</span><strong>{progress.level === progress.max_level ? `${progress.max_level} / ${progress.max_level}` : `${progress.courses_per_level - progress.courses_to_next_level} / ${progress.courses_per_level}`}</strong></div>
-      <progress aria-label={c.nextProgress} value={progress.progress_to_next_level} max={100} />
-      <p>{progress.level === progress.max_level ? c.maximum : <>{c.next}: <strong>{progress.courses_to_next_level}</strong></>}</p>
+      <div className="city-growth-stats">
+        <div><strong>{progress.completed_courses}</strong><span>{c.completed}</span></div>
+        <div><strong>{atMaximum ? progress.max_level : progress.courses_to_next_level}</strong><span>{atMaximum ? c.maximum : c.next}</span></div>
+      </div>
+      <div className="city-progress-label"><span>{atMaximum ? c.growth : c.nextProgress}</span><strong>{atMaximum ? `${progress.max_level} / ${progress.max_level}` : `${progress.courses_per_level - progress.courses_to_next_level} / ${progress.courses_per_level}`}</strong></div>
+      <progress aria-label={atMaximum ? c.growth : c.nextProgress} value={progress.progress_to_next_level} max={100} />
     </div>
     <details className="city-level-gallery">
       <summary>{c.gallery}<Icon name="chevron" size={17} /></summary>
@@ -54,7 +58,8 @@ export function CityEvolution({ progress }: { progress: CityProgress }) {
         const itemLevel = i + 1
         return <button key={itemLevel} onClick={() => setPreviewLevel(itemLevel === progress.level ? null : itemLevel)} className={`city-level-option ${itemLevel === level ? 'selected' : ''}`} aria-pressed={itemLevel === level} aria-label={`${c.level} ${itemLevel}: ${title}. ${itemLevel <= progress.level ? c.available : c.locked}`}>
           <CityLevelArtwork level={itemLevel} label={`${c.level} ${itemLevel}: ${title}`} />
-          <span>{itemLevel}{itemLevel === progress.level && <Icon name="flag" size={12} />}{itemLevel < progress.level && <Icon name="check" size={12} />}</span>
+          <span>{c.level} {itemLevel}{itemLevel === progress.level && <Icon name="flag" size={12} />}{itemLevel < progress.level && <Icon name="check" size={12} />}</span>
+          <small>{title}</small>
         </button>
       })}</div>
     </details>

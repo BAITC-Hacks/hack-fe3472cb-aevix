@@ -9,7 +9,9 @@
 .growth-wallet-balance { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; margin-top: 18px; }
 .growth-wallet-balance strong { font-size: clamp(32px, 4vw, 44px); line-height: 1.2; letter-spacing: -1.5px; overflow-wrap: anywhere; }
 .growth-wallet-balance > span { color: var(--text-2); font-size: 12px; }
-.growth-wallet-balance-label { color: var(--text-2); margin: 5px 0 17px; font-size: 12px; }
+.growth-wallet-balance-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin: 5px 0 12px; }
+.growth-wallet-balance-actions .text-button { font-size: 11px; }
+.growth-wallet-balance-label { color: var(--text-2); margin: 0; font-size: 12px; }
 .growth-wallet-hint { color: var(--text-2); font-size: 12px; line-height: 1.65; margin: 10px 0; }
 .growth-wallet-history { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 8px; }
 .growth-wallet-history > summary, .growth-wallet-goal > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none; cursor: pointer; min-height: 44px; }
