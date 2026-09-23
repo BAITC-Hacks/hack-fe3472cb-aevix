@@ -111,6 +111,17 @@ class QuestProgress(Base):
     completed_at = Column(Date, nullable=True)
 
 
+class QuestStepProgress(Base):
+    __tablename__ = "quest_step_progress"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    employee_id = Column(String, ForeignKey("employees.employee_id"), nullable=False)
+    event_id = Column(String, ForeignKey("events.event_id"), nullable=False)
+    step_number = Column(Integer, nullable=False)
+    status = Column(String, nullable=False, default="pending")
+    completed_at = Column(Date, nullable=True)
+
+
 class Team(Base):
     __tablename__ = "teams"
 
@@ -120,8 +131,6 @@ class Team(Base):
     max_members = Column(Integer, nullable=False, default=5)
     status = Column(String, nullable=False, default="active")
     completed_team_quests = Column(Integer, nullable=False, default=0)
-    current_event_id = Column(String, ForeignKey("events.event_id"), nullable=True)
-    quest_started_at = Column(Date, nullable=True)
 
 
 class TeamMember(Base):

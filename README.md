@@ -90,9 +90,6 @@ uvicorn app.main:app --reload
 ## 6. Список endpoints
 
 - GET /health
-- GET /docs
-- GET /redoc
-- GET /openapi.json
 - POST /api/import/dataset
 - POST /api/import/employees
 - POST /api/import/events
@@ -102,14 +99,14 @@ uvicorn app.main:app --reload
 - POST /api/import/check-history
 - POST /api/import/jury-dataset
 - GET /api/employees
-- GET /api/employees/catalog
 - POST /api/employees/register
 - GET /api/employees/{employee_id}
 - GET /api/employees/{employee_id}/profile
 - GET /api/employees/{employee_id}/trajectory
 - GET /api/employees/{employee_id}/recommendations
-- GET /api/recommendations/{employee_id}
 - POST /api/employees/{employee_id}/quests/{event_id}/complete
+- GET /api/employees/{employee_id}/quests/{event_id}/steps
+- POST /api/employees/{employee_id}/quests/{event_id}/steps/{step_number}/complete
 - POST /api/employees/{employee_id}/quests/{event_id}/select
 - POST /api/pairs/invitations
 - GET /api/pairs/invitations?employee_id=E0002
@@ -229,10 +226,6 @@ curl http://127.0.0.1:8000/api/employees/E_TEST_001/recommendations
 
 Для полного набора файлов можно использовать `multipart/form-data` endpoint `/api/import/jury-dataset` с полями `employees`, `history`, `events`, `skills`. Импорт идемпотентный и обновляет записи по `employee_id`/`record_id`.
 
-Импорт пакета выполняется одной транзакцией: ошибка в любом файле отменяет изменения всего пакета. История загружается после сотрудников и событий. Некорректные JSON/CSV и ссылки на неизвестные записи возвращают `422`, отсутствующая папка или файл — `404`.
-
-Оба маршрута рекомендаций поддерживают `limit` (1–100), `language` (`ru`, `kk`, `en`) и `include_explanations=true`. По умолчанию рекомендации рассчитываются локально; запрос к AI-агенту выполняется только при явном запросе объяснения. Каталог навыков, ролей и событий для интерфейса доступен через `/api/employees/catalog`.
-
 Регистрация одного сотрудника выполняется через `POST /api/employees/register` с тем же форматом профиля, что и в `employees.json`.
 
 Завершение добровольного квеста возвращает обновление навыков, progress и Growth Coins:
@@ -290,17 +283,15 @@ curl http://127.0.0.1:8000/api/employees/E_TEST_001/recommendations
 
 Game service не рассчитывает score и не выбирает события по потребностям районов.
 
+Frontend использует Halyk Together как основной пользовательский flow. Career City убран из интерфейса; старые `/api/game/*` endpoints сохранены только для обратной совместимости backend-клиентов.
+
+Quest steps строятся через OpenAI Responses API, если задан `OPENAI_API_KEY`. Backend передаёт модели только выбранное событие и профиль сотрудника, а результатом становится structured JSON из 3–5 шагов. Без ключа используется локальный template fallback, поэтому прохождение квеста не ломается.
+
 Это позволяет сотруднику видеть прогресс как карьерную карту, но объяснение остаётся в рекомендациях, а не только в анимации.
 
 ## 10. Команды, coins и ESG
 
 Команды являются optional collaboration layer: создатель добавляет участников, команда запускает и завершает квесты, может быть поставлена на паузу или перейти в `waiting_for_member` после трёх командных квестов. Командная механика не меняет AI score.
-
-Страница «Совместное обучение» (`/#/collaboration`) позволяет создать команду, вступить по коду, управлять общим заданием и приглашать коллег. Выбранные команды и пары сохраняются в браузере отдельно для каждого сотрудника; на другом устройстве их можно открыть по коду.
-
-Создание команды: `POST /api/teams` с JSON `{"creator_id":"E0002","name":"Учимся вместе","max_members":5}`. Вступление: `POST /api/teams/{team_id}/join` с `{"employee_id":"E0003"}`. Сначала вызовите `start`, затем `complete` для одного и того же задания. Пауза сохраняет текущее задание, а `resume` возвращает его в работу. Начало и завершение записываются сразу для всех участников одной транзакцией; повторное завершение не выдаёт награду повторно.
-
-Существующая SQLite-база обновляется при старте: добавляются поля текущего командного задания, сохранённые данные остаются на месте.
 
 Growth Coins не являются деньгами и не формируют рейтинг сотрудников. Их можно потратить на ESG-инициативы после проверки HR: mentoring, Green Office, образовательную программу или workshop. API возвращает `pending_hr_review`, а HR видит только агрегированную вовлечённость через `/api/hr/esg-engagement`.
 
@@ -326,11 +317,8 @@ curl http://127.0.0.1:8000/api/hr/dashboard
 ## 12. Тест
 
 ```bash
-OPENAI_API_KEY='' python -m pytest app/tests -q
-npm run build --prefix frontend
+python -m pytest app/tests/test_recommendation.py -q
 ```
-
-Тесты используют отдельную временную базу для каждого сценария и отключают внешние AI-вызовы. Проверяются все опубликованные маршруты, импорт, команды, пары, завершение заданий, кошелёк, ESG и HR. В dev-режиме Vite проксирует `/api`, `/health`, `/docs`, `/redoc` и `/openapi.json` на `BACKEND_URL` (по умолчанию `http://127.0.0.1:8000`).
 
 ## 13. Ограничения и принципы
 
@@ -340,3 +328,4 @@ npm run build --prefix frontend
 - Данные синтетические.
 - Детерминированный fallback engine обязателен.
 - Нет публичного рейтинга сотрудников.
+

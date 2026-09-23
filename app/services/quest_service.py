@@ -1,115 +1,107 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from datetime import date
-from threading import RLock
-from typing import Any, Iterator
-from uuid import uuid4
+from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
-from app.db.models import ActivityHistory, Employee, Event, QuestProgress
-
-
-_quest_write_lock = RLock()
-RECURRING_EVENTS = {"EV_036"}
-ACTIVE_HISTORY_STATUSES = {"registered", "in_progress", "overdue"}
-
-
-@contextmanager
-def quest_write_transaction() -> Iterator[Session]:
-    """Keep a quest and its learning history/rewards in a single transaction."""
-    with _quest_write_lock:
-        with SessionLocal() as db:
-            try:
-                # Acquire SQLite's write lock before checking completion, including
-                # across server workers. Other databases lock the employee row.
-                if db.get_bind().dialect.name == "sqlite":
-                    db.connection().exec_driver_sql("BEGIN IMMEDIATE")
-                yield db
-                db.commit()
-            except Exception:
-                db.rollback()
-                raise
-
-
-def quest_prerequisites_met(employee: Employee, event: Event) -> bool:
-    return all(
-        int((employee.skills or {}).get(skill_id, 0)) >= int(level)
-        for skill_id, level in (event.prerequisites or {}).items()
-    )
-
-
-def _quest_records(db: Session, employee_id: str, event_id: str) -> tuple[Employee, Event, QuestProgress | None]:
-    employee = db.query(Employee).filter_by(employee_id=employee_id).with_for_update().first()
-    if employee is None:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    event = db.get(Event, event_id)
-    if event is None:
-        raise HTTPException(status_code=404, detail="Event not found")
-    if not quest_prerequisites_met(employee, event):
-        raise HTTPException(status_code=409, detail="Quest prerequisites are not met")
-    progress = db.query(QuestProgress).filter_by(employee_id=employee_id, event_id=event_id).first()
-    return employee, event, progress
-
-
-def _has_completed(db: Session, employee_id: str, event_id: str, progress: QuestProgress | None) -> bool:
-    return bool(
-        (progress is not None and progress.status == "completed")
-        or db.query(ActivityHistory).filter_by(employee_id=employee_id, event_id=event_id, status="completed").first()
-    )
-
-
-def _select_quest(db: Session, employee_id: str, event_id: str, mode: str = "solo") -> dict[str, Any]:
-    if mode not in {"solo", "team"}:
-        raise HTTPException(status_code=422, detail="mode must be solo or team")
-    _employee, event, progress = _quest_records(db, employee_id, event_id)
-    if event_id not in RECURRING_EVENTS and _has_completed(db, employee_id, event_id, progress):
-        raise HTTPException(status_code=409, detail="Quest already completed")
-    if progress is None:
-        progress = QuestProgress(employee_id=employee_id, event_id=event_id)
-        db.add(progress)
-    progress.status = "selected"
-    progress.mode = mode
-    progress.started_at = progress.started_at or date.today()
-    progress.completed_at = None
-
-    active = db.query(ActivityHistory).filter_by(employee_id=employee_id, event_id=event_id).filter(
-        ActivityHistory.status.in_(ACTIVE_HISTORY_STATUSES)
-    ).all()
-    if not active:
-        active = [ActivityHistory(
-            record_id=f"R_{uuid4().hex}", employee_id=employee_id, event_id=event_id,
-            date=date.today(), completion_pct=0, assigned_by="self",
-        )]
-        db.add(active[0])
-    for entry in active:
-        entry.status = "in_progress"
-        entry.date = entry.date or date.today()
-    db.flush()
-    return {
-        "employee_id": employee_id, "event_id": event_id, "title": event.title,
-        "status": progress.status, "mode": progress.mode,
-        "next_step": "Start the quest and complete the activity.",
-    }
+from app.db.models import Employee, Event, QuestProgress, QuestStepProgress
+from app.services.llm_service import generate_quest_steps
 
 
 def select_quest(employee_id: str, event_id: str, mode: str = "solo") -> dict[str, Any]:
-    with quest_write_transaction() as db:
-        return _select_quest(db, employee_id, event_id, mode)
+    if mode not in {"solo", "team"}:
+        raise HTTPException(status_code=422, detail="mode must be solo or team")
+    db = SessionLocal()
+    try:
+        if not db.get(Employee, employee_id):
+            raise HTTPException(status_code=404, detail="Employee not found")
+        event = db.get(Event, event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        progress = db.query(QuestProgress).filter_by(employee_id=employee_id, event_id=event_id).first()
+        if progress is None:
+            progress = QuestProgress(employee_id=employee_id, event_id=event_id, status="selected", mode=mode)
+            db.add(progress)
+        else:
+            progress.status = "selected"
+            progress.mode = mode
+        db.commit()
+        return {
+            "employee_id": employee_id,
+            "event_id": event_id,
+            "title": event.title,
+            "status": progress.status,
+            "mode": progress.mode,
+            "next_step": "Start the quest and complete the activity.",
+        }
+    finally:
+        db.close()
 
 
-def mark_quest_completed(employee_id: str, event_id: str, db: Session | None = None) -> None:
-    if db is None:
-        with quest_write_transaction() as transaction:
-            mark_quest_completed(employee_id, event_id, transaction)
-        return
-    progress = db.query(QuestProgress).filter_by(employee_id=employee_id, event_id=event_id).first()
-    if progress is None:
-        progress = QuestProgress(employee_id=employee_id, event_id=event_id, mode="solo", started_at=date.today())
-        db.add(progress)
-    progress.status = "completed"
-    progress.completed_at = date.today()
-    db.flush()
+def mark_quest_completed(employee_id: str, event_id: str) -> None:
+    db = SessionLocal()
+    try:
+        progress = db.query(QuestProgress).filter_by(employee_id=employee_id, event_id=event_id).first()
+        if progress is None:
+            progress = QuestProgress(employee_id=employee_id, event_id=event_id, status="completed", mode="solo")
+            db.add(progress)
+        else:
+            progress.status = "completed"
+            progress.completed_at = date.today()
+        db.commit()
+    finally:
+        db.close()
+
+
+def get_quest_steps(employee_id: str, event_id: str) -> dict[str, Any]:
+    db = SessionLocal()
+    try:
+        employee = db.get(Employee, employee_id)
+        event = db.get(Event, event_id)
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        result = generate_quest_steps(
+            {"event_id": event.event_id, "title": event.title, "description": event.description, "type": event.type, "duration_hours": event.duration_hours, "develops_skills": event.develops_skills, "prerequisites": event.prerequisites},
+            {"employee_id": employee.employee_id, "role": employee.role, "grade": employee.grade, "career_goal": employee.career_goal, "skills": employee.skills},
+        )
+        result["task"] = {
+            "event_id": event.event_id,
+            "title": event.title,
+            "description": event.description,
+            "type": event.type,
+            "format": event.format,
+            "duration_hours": event.duration_hours,
+            "develops_skills": event.develops_skills or [],
+        }
+        completed = {row.step_number for row in db.query(QuestStepProgress).filter_by(employee_id=employee_id, event_id=event_id, status="completed").all()}
+        for step in result["steps"]:
+            step["done"] = step["step"] in completed
+        return result
+    finally:
+        db.close()
+
+
+def complete_quest_step(employee_id: str, event_id: str, step_number: int) -> dict[str, Any]:
+    steps = get_quest_steps(employee_id, event_id)["steps"]
+    if not any(step["step"] == step_number for step in steps):
+        raise HTTPException(status_code=422, detail="Unknown quest step")
+    db = SessionLocal()
+    try:
+        if not db.get(Employee, employee_id) or not db.get(Event, event_id):
+            raise HTTPException(status_code=404, detail="Employee or event not found")
+        row = db.query(QuestStepProgress).filter_by(employee_id=employee_id, event_id=event_id, step_number=step_number).first()
+        if row is None:
+            row = QuestStepProgress(employee_id=employee_id, event_id=event_id, step_number=step_number, status="completed", completed_at=date.today())
+            db.add(row)
+        else:
+            row.status = "completed"
+            row.completed_at = date.today()
+        db.commit()
+        completed_steps = db.query(QuestStepProgress).filter_by(employee_id=employee_id, event_id=event_id, status="completed").count()
+        return {"employee_id": employee_id, "event_id": event_id, "step_number": step_number, "status": "completed", "completed_steps": completed_steps, "total_steps": len(steps)}
+    finally:
+        db.close()

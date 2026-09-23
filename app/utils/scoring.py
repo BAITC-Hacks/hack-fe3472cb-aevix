@@ -8,7 +8,7 @@ def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
 
 
 def expected_after(current_level: int, gain: int, max_level: int) -> int:
-    return max(int(current_level), min(int(current_level) + max(int(gain), 0), int(max_level)))
+    return min(int(current_level) + int(gain), int(max_level))
 
 
 def normalize_gap(value: float) -> float:
