@@ -1,9 +1,10 @@
-# HackAlem AI — Career Quest Backend
+﻿# AEVIX - AI Career Quest Platform
 
-## 1. Описание проекта
+AEVIX - платформа персонального развития сотрудников. Система анализирует профиль сотрудника, историю активностей и skill gaps, рекомендует карьерные квесты, объясняет логику рекомендаций через AI и помогает проходить активности по шагам.
 
-Это backend для хакатон-проекта HackAlem AI в треке Halyk Bank. Он реализует AI-навигатор развития сотрудника на основе детерминированного рекомендательного движка, который оценивает gaps по навыкам, роль/грейд цели, историю активности и требования следующего уровня.
+## Архитектура
 
+<<<<<<< HEAD
 Главное ядро — Explainable AI Recommendation Engine: сотрудник получает 1–3 следующих шага с skill gaps, critical skills, требованиями role profile, историей активности, prerequisites и понятным объяснением.
 
 Career City — только visualization/gamification layer поверх уже рассчитанных рекомендаций. Growth Coins — необязательная мотивационная фича, а ESG/Impact tags — визуальный слой. Ни один из этих слоёв не влияет на recommendation score.
@@ -45,350 +46,323 @@ Career City — только visualization/gamification layer поверх уж�
 
 ```bash
 set DATASET_DIR=C:\path\to\dataset
+=======
+```text
++-----------------+       HTTP        +-----------------+       HTTPS       +--------------+
+|    Frontend     | <---------------> |     Backend     | <--------------> |    OpenAI    |
+|  React + Vite   |      :3000        |     FastAPI     |  Responses API   |     LLM      |
++-----------------+                   +-----------------+                  +--------------+
+                                              |
+                                              v
+                                      +-----------------+
+                                      |     SQLite      |
+                                      | career_quest.db |
+                                      +-----------------+
+                                              |
+                                              v
+                                      +-----------------+
+                                      | Career Dataset  |
+                                      | employees/events|
+                                      +-----------------+
+>>>>>>> 7033c80a56c300d12dd4f2b5745db3d4f0fc1c55
 ```
 
-Или в Linux/macOS:
+## Возможности
+
+- **Персональные рекомендации**: deterministic engine считает score по skill gaps, целевому грейду, impact, prerequisites и истории активностей.
+- **AI-объяснения**: OpenAI Responses API формулирует понятное объяснение, почему выбран конкретный квест.
+- **AI-шаги квеста**: модель генерирует практический план из 3-5 шагов для выбранной активности.
+- **Прогресс-бары ожидания**: frontend показывает индикатор, пока модель думает.
+- **Парное обучение**: сотрудник может найти коллегу и пройти квест вместе.
+- **Growth Coins**: кошелек, транзакции и награды за завершение активностей.
+- **ESG goals**: вклад Growth Coins в инициативы компании.
+- **HR analytics**: агрегированная аналитика по skill gaps, активности сотрудников и ESG engagement.
+- **Импорт данных**: загрузка employees, events, skills и activity history через API.
+
+## Презентация
+
+- **Google Drive**: https://drive.google.com/drive/folders/1A299QTBNUuf_FNof-x1WaDoIz2rqlgfu?usp=share_link
+
+## Быстрый запуск через Docker Compose
+
+### Требования
+
+- Docker
+- Docker Compose
+- Git
+- OpenAI API key, если нужны AI-объяснения и AI-шаги
+
+### 1. Настрой `.env`
+
+Файл `.env` лежит в папке backend:
 
 ```bash
-export DATASET_DIR=/path/to/dataset
+cd hack-fe3472cb-aevix
 ```
 
-Для optional LLM-объяснений используйте только переменные окружения или `.env`:
+Пример:
 
 ```env
-OPENAI_API_KEY=your-key
-OPENAI_MODEL=gpt-6-astra
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-6-sol
+
+# Optional dataset override
+# DATASET_DIR=C:\path\to\career_quest_dataset\case_1\career_quest_dataset
 ```
 
-Без `OPENAI_API_KEY` backend работает через локальный template explanation. Deterministic engine всегда выбирает события и считает score; OpenAI только формулирует объяснение.
+Если `OPENAI_API_KEY` не задан, приложение продолжит работать через локальные template-ответы.
 
-Поддерживаются файлы:
-
-- employees.json
-- events.json
-- skills.json
-- activity_history.csv
-
-Примечание: служебные каталоги вроде __MACOSX игнорируются.
-
-## 4. Как импортировать датасет
-
-Есть 2 способа.
-
-### Через API
-
-Импорт доступен только после входа HR. Сначала получите cookie сессии и `csrf_token`:
+### 2. Запусти сервисы
 
 ```bash
-curl -c /tmp/career-quest-hr.cookies -X POST http://127.0.0.1:8000/api/auth/hr/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"hr","password":"YOUR_HR_PASSWORD"}'
-curl -b /tmp/career-quest-hr.cookies -X POST http://127.0.0.1:8000/api/import/dataset \
-  -H 'X-CSRF-Token: CSRF_TOKEN_FROM_LOGIN'
+docker compose up --build -d
 ```
 
-### Через seed при старте
+### 3. Открой приложение
 
-При запуске backend автоматически создает SQLite БД и загружает датасет, если таблицы пустые.
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **Swagger docs**: http://localhost:8000/docs
+- **Demo employee ID**: `E0002`
 
-## 5. Как запустить backend
+### 4. Остановить сервисы
 
 ```bash
-python -m venv venv
-venv\Scripts\activate
+docker compose down
+```
+
+Чтобы удалить volume с SQLite-базой:
+
+```bash
+docker compose down -v
+```
+
+## Ручной запуск без Docker
+
+### Backend
+
+```bash
+cd hack-fe3472cb-aevix
+python -m venv env
+env\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-После запуска Swagger доступен здесь:
-
-- http://127.0.0.1:8000/docs
-
-### Единая платформа для сотрудников и HR
-
-Перед первым входом HR создайте локальные учётные данные из корня backend:
+Проверка:
 
 ```bash
-venv/bin/python -m app.setup_hr
+curl http://127.0.0.1:8000/health
 ```
 
-Команда сохраняет хеш пароля в `.env`, а логин и сгенерированный пароль — в `.local/hr-access.txt` с доступом только владельцу. Оба файла исключены из Git. После настройки перезапустите backend. `venv/bin/python -m app.setup_hr --rotate` заменяет пароль и отзывает HR-сессии; после команды также нужен перезапуск.
+### Frontend
 
-Личные учётные записи сотрудников создаются по импортированным профилям:
-
-```bash
-venv/bin/python -m app.setup_employees
-# Только один сотрудник или сброс его пароля:
-venv/bin/python -m app.setup_employees --employee-id E0002
-venv/bin/python -m app.setup_employees --employee-id E0002 --rotate
-```
-
-Логин сотрудника — его ID, каждому назначается отдельный случайный пароль. Хеши хранятся в БД, локальная таблица выданных паролей — в `.local/employee-access.csv` (права `600`, исключена из Git). Передавайте сотруднику только его строку. Повторный запуск сохраняет существующие пароли; `--rotate` меняет выбранные пароли и отзывает соответствующие сессии. После импорта новых сотрудников повторите команду.
-
-Запуск frontend:
+Frontend находится рядом с backend-папкой:
 
 ```bash
-cd frontend
+cd ../career-quest-frontend
 npm install
 npm run dev
 ```
 
-Общий адрес и экран входа для обеих ролей: **http://localhost:5173/**. Старые `/employee` и `/hr` открывают ту же платформу.
+По умолчанию Vite откроется на:
 
-Сотрудник видит свой профиль без переключателя и без пункта HR в меню. Его ID определяется сессией на сервере: замена ID в URL, query, localStorage или теле запроса не открывает чужое обучение, кошелёк или профиль. Справочник коллег для совместного обучения содержит только ID, имя, роль и подразделение.
+```text
+http://127.0.0.1:5173
+```
 
-HR видит ту же платформу, переключатель «Просмотр от имени сотрудника» и пункт **HR** в боковом и burger-меню. Просмотр профиля доступен без изменения его данных: выбор/завершение квестов, отметки шагов, взносы и действия в командах от имени сотрудника запрещены и на backend. Просмотр ещё не открытого плана не запускает генерацию. Аналитика находится в общем интерфейсе по `/#/hr`.
+## Сервисы
 
-Backend проверяет HR-роль на всех `/api/hr/*`, `/api/import/*` и `POST /api/employees/register`. Все изменения через API требуют `X-CSRF-Token` из ответа входа. HttpOnly-сессия действует 8 часов, отзывается при выходе, смене пароля или отключении учётной записи; токен в БД хранится в виде хеша. Роль задаётся только сервером.
+| Сервис | Порт | Описание |
+| ------ | ---- | -------- |
+| Frontend | 3000 | React/Vite SPA, собранный в Nginx container |
+| Backend | 8000 | FastAPI API для рекомендаций, квестов, HR и ESG |
+| SQLite | volume | Локальная база `career_quest.db` внутри Docker volume |
+| OpenAI | external | AI-объяснения и генерация шагов квеста |
 
-Вход: `POST /api/auth/login` с `{ "username": "E0002", "password": "..." }` (для HR его логин вместо ID), состояние: `GET /api/auth/session`, выход: `POST /api/auth/logout`. Старый `POST /api/auth/hr/login` сохраняется для совместимости. Списки команд и пар сотрудника приходят с сервера через `GET /api/teams?employee_id=...` и `GET /api/pairs?employee_id=...`.
-
-Для развёртывания используйте HTTPS, `HR_COOKIE_SECURE=true`, перечислите точные адреса frontend в `ALLOWED_ORIGINS` через запятую. Рекомендуется единый домен с прокси `/api` на backend. Веб-сервер должен отдавать `frontend/dist/index.html` для клиентских адресов, как это делает Vite.
-
-### Пошаговое обучение
-
-«Моё обучение» показывает описание занятия и план из 3–5 шагов. План создаётся при первом раскрытии и сохраняется для сотрудника и занятия. Отметки сохраняются через `POST /api/employees/{employee_id}/quests/{event_id}/steps/{step_number}/complete`; чтение — через `GET /api/employees/{employee_id}/quests/{event_id}/steps?language=ru` (также `kk`, `en`). Повторное чтение возвращает тот же план.
-
-Если план создан, для финального завершения нужны все его шаги. Подтверждение завершения отдельно начисляет награду и обновляет навыки; для командного квеста оно выполняется в «Совместном обучении». Ранее выбранные задания без сохранённого плана поддерживают прежний API завершения.
-
-## 6. Список endpoints
-
-- GET /health
-- POST /api/import/dataset
-- POST /api/import/employees
-- POST /api/import/events
-- POST /api/import/skills
-- POST /api/import/history
-- POST /api/import/check-profiles
-- POST /api/import/check-history
-- POST /api/import/jury-dataset
-- GET /api/employees
-- POST /api/employees/register
-- GET /api/employees/{employee_id}
-- GET /api/employees/{employee_id}/profile
-- GET /api/employees/{employee_id}/trajectory
-- GET /api/employees/{employee_id}/recommendations
-- POST /api/employees/{employee_id}/quests/{event_id}/complete
-- GET /api/employees/{employee_id}/quests/{event_id}/steps
-- POST /api/employees/{employee_id}/quests/{event_id}/steps/{step_number}/complete
-- POST /api/employees/{employee_id}/quests/{event_id}/select
-- POST /api/pairs/invitations
-- GET /api/pairs/invitations?employee_id=E0002
-- GET /api/pairs/invitations/{invitation_id}/preview?employee_id=E0003
-- POST /api/pairs/invitations/{invitation_id}/respond
-- GET /api/pairs/{pair_id}
-- GET /api/game/{employee_id}/map
-- GET /api/game/{employee_id}/progress
-- GET /api/game/{employee_id}/quests
-- GET /api/hr/dashboard
-- GET /api/hr/skill-gaps
-- GET /api/hr/inactive-employees
-- GET /api/hr/events-effectiveness
-- POST /api/teams
-- GET /api/teams/{team_id}
-- POST /api/teams/{team_id}/join
-- POST /api/teams/{team_id}/quests/{event_id}/start
-- POST /api/teams/{team_id}/quests/{event_id}/complete
-- POST /api/teams/{team_id}/pause
-- POST /api/teams/{team_id}/resume
-- GET /api/wallet/{employee_id}
-- GET /api/esg-goals
-- POST /api/esg-goals/{goal_id}/contribute
-- GET /api/hr/esg-engagement
-
-## 7. Примеры request/response
-
-### Профиль сотрудника
+## Docker-файлы
 
 ```bash
-curl http://127.0.0.1:8000/api/employees/E0002/profile
+aevix/
+├── hack-fe3472cb-aevix/
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── .dockerignore
+└── career-quest-frontend/
+    ├── Dockerfile
+    ├── nginx.conf
+    └── .dockerignore
 ```
 
-Пример ответа:
+## Переменные окружения
 
-```json
-{
-  "employee_id": "E0002",
-  "role": "Backend Engineer",
-  "grade": "Middle",
-  "target_role": "Backend Engineer",
-  "target_grade": "Senior",
-  "progress_to_next_grade": 58.0,
-  "skills": {
-    "SK_PYTHON": 3,
-    "SK_SYSTEM_DESIGN": 1
-  }
-}
+### Backend
+
+| Переменная | Обязательная | Значение по умолчанию | Описание |
+| ---------- | ------------ | --------------------- | -------- |
+| `OPENAI_API_KEY` | Нет | `None` | API key для OpenAI |
+| `OPENAI_MODEL` | Нет | `gpt-6-astra` | Модель для AI-объяснений и шагов |
+| `DATABASE_URL` | Нет | `sqlite:///./career_quest.db` | SQLAlchemy URL базы данных |
+| `DATASET_DIR` | Нет | bundled dataset | Путь к dataset |
+| `ALLOWED_ORIGINS` | Нет | localhost origins | CORS origins для frontend |
+
+### Frontend
+
+| Переменная | Обязательная | Значение по умолчанию | Описание |
+| ---------- | ------------ | --------------------- | -------- |
+| `VITE_API_URL` | Нет | `http://127.0.0.1:8000` | URL backend API |
+| `VITE_EMPLOYEE_ID` | Нет | `E0002` | ID сотрудника для demo UI |
+
+В Docker Compose frontend собирается с:
+
+```env
+VITE_API_URL=http://localhost:8000
+VITE_EMPLOYEE_ID=E0002
 ```
 
-### Recommendation
+## Структура проекта
 
 ```bash
-curl http://127.0.0.1:8000/api/employees/E0002/recommendations
+aevix/
+├── hack-fe3472cb-aevix/              # Backend FastAPI
+│   ├── app/
+│   │   ├── core/                     # Конфигурация
+│   │   ├── db/                       # SQLAlchemy модели и база
+│   │   ├── routers/                  # API роуты
+│   │   ├── schemas/                  # Pydantic схемы
+│   │   ├── services/                 # Бизнес-логика
+│   │   ├── tests/                    # Pytest тесты
+│   │   └── main.py                   # FastAPI приложение
+│   ├── career_quest_dataset/         # Demo dataset
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   ├── requirements.txt
+│   └── .env
+└── career-quest-frontend/            # Frontend React/Vite
+    ├── src/
+    │   ├── api.js                    # API client
+    │   ├── SiteApp.jsx               # Основной UI
+    │   ├── AdminPages.jsx            # HR и import страницы
+    │   └── site.css                  # Стили
+    ├── Dockerfile
+    ├── nginx.conf
+    └── package.json
 ```
 
-Пример ответа:
+## API endpoints
 
-```json
-{
-  "employee_id": "E0002",
-  "role": "Backend Engineer",
-  "current_grade": "Middle",
-  "target_role": "Backend Engineer",
-  "target_grade": "Senior",
-  "progress_to_next_grade": 58,
-  "recommendations": [
-    {
-      "event_id": "EV_006",
-      "title": "Designing High-Load Systems",
-      "quest_title": "Designing High-Load Systems",
-      "type": "workshop",
-      "score": 0.91,
-      "priority": "high",
-      "scoring_factors": {
-        "skill_gap_score": 0.9,
-        "critical_skill_score": 1.0,
-        "event_impact_score": 0.8,
-        "role_grade_relevance_score": 0.9,
-        "history_score": 0.7,
-        "prerequisite_score": 1.0
-      },
-      "why_recommended": [
-        "System Design is 1, required level for Senior is 4",
-        "This is a critical skill for the target grade",
-        "The event improves System Design by +1"
-      ],
-      "affected_skills": [
-        {
-          "skill_id": "SK_SYSTEM_DESIGN",
-          "current_level": 1,
-          "required_level": 4,
-          "gain": 1,
-          "expected_after": 2,
-          "gap_before": 3,
-          "gap_after": 2,
-          "is_critical": true
-        }
-      ],
-      "history_signal": {
-        "completed_similar": 2,
-        "missed_or_declined_similar": 0,
-        "already_completed_this_event": false
-      },
-      "explanation": "System Design is currently 1 while Senior Backend Engineer requires 4. The event improves System Design by +1 and reduces the gap from 3 to 2."
-    }
-  ]
-}
-```
+### Health
 
-После импорта jury-профиля рекомендации доступны сразу:
+- `GET /health` - проверка backend
+
+### Employees
+
+- `GET /api/employees` - список сотрудников
+- `POST /api/employees/register` - регистрация сотрудника
+- `GET /api/employees/{employee_id}` - данные сотрудника
+- `GET /api/employees/{employee_id}/profile` - профиль сотрудника
+- `GET /api/employees/{employee_id}/trajectory` - траектория развития
+- `GET /api/employees/{employee_id}/recommendations` - рекомендации с AI-объяснениями
+
+### Quests
+
+- `POST /api/employees/{employee_id}/quests/{event_id}/select` - выбрать квест
+- `GET /api/employees/{employee_id}/quests/{event_id}/steps` - получить шаги квеста
+- `POST /api/employees/{employee_id}/quests/{event_id}/steps/{step_number}/complete` - завершить шаг
+- `POST /api/employees/{employee_id}/quests/{event_id}/complete` - завершить квест
+
+### Game / Wallet / ESG
+
+- `GET /api/game/{employee_id}/map` - карта развития
+- `GET /api/game/{employee_id}/progress` - игровой прогресс
+- `GET /api/game/{employee_id}/quests` - игровые квесты
+- `GET /api/wallet/{employee_id}` - Growth Coins wallet
+- `GET /api/esg-goals` - ESG goals
+- `POST /api/esg-goals/{goal_id}/contribute` - отправить coins на ESG goal
+
+### Pair learning / Teams
+
+- `GET /api/pairs/invitations?employee_id={employee_id}` - список приглашений
+- `POST /api/pairs/invitations` - опубликовать приглашение
+- `GET /api/pairs/invitations/{invitation_id}/preview?employee_id={employee_id}` - проверить совместимость
+- `POST /api/pairs/invitations/{invitation_id}/respond` - принять или отклонить приглашение
+- `POST /api/teams` - создать команду
+- `GET /api/teams/{team_id}` - получить команду
+- `POST /api/teams/{team_id}/join` - вступить в команду
+
+### HR / Import
+
+- `GET /api/hr/dashboard` - HR dashboard
+- `GET /api/hr/esg-engagement` - ESG engagement analytics
+- `POST /api/import/dataset` - импорт dataset
+- `POST /api/import/check-profiles` - импорт employees JSON
+- `POST /api/import/check-history` - импорт activity history CSV
+- `POST /api/import/events` - импорт events JSON
+- `POST /api/import/skills` - импорт skills JSON
+
+## Тестирование
+
+Backend:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/import/check-profiles -F "file=@employees.json"
-curl http://127.0.0.1:8000/api/employees/E_TEST_001/recommendations
+cd hack-fe3472cb-aevix
+pytest
 ```
 
-Для полного набора файлов можно использовать `multipart/form-data` endpoint `/api/import/jury-dataset` с полями `employees`, `history`, `events`, `skills`. Импорт идемпотентный и обновляет записи по `employee_id`/`record_id`.
-
-Регистрация одного сотрудника выполняется через `POST /api/employees/register` с тем же форматом профиля, что и в `employees.json`.
-
-Завершение добровольного квеста возвращает обновление навыков, progress и Growth Coins:
-
-```json
-{
-  "progress_to_next_grade_before": 57.35,
-  "progress_to_next_grade_after": 60.12,
-  "coins_earned": 120,
-  "wallet_balance": 840,
-  "coin_reason": "Voluntary quest completed, critical skill improved, skill gap reduced"
-}
-```
-
-Для `mandatory=true` событие может быть записано в `activity_history`, но `coins_earned` всегда равен `0`.
-
-## 8. Как работает recommendation engine
-
-Алгоритм детерминированный и укладывается в требования по скорости:
-
-1. Определяется целевой грейд сотрудника из career_goal или следующего уровня по иерархии.
-2. Загружается RoleProfile для target_role + target_grade.
-3. Считаются skill gaps: required_level - current_level.
-4. Берутся только positive gaps > 0.
-5. События-фильтры:
-   - mandatory = false
-   - target_roles содержит роль сотрудника/целевую роль
-   - target_grades сопоставимы с целевым грейдом
-   - событие развивает хотя бы один gap-навык
-   - prerequisites выполнены
-   - event_id уже не завершен
-6. Считается score на основе нескольких факторов:
-  - `skill_gap_score * 0.30`
-  - `critical_skill_score * 0.20`
-  - `event_impact_score * 0.20`
-  - `role_grade_relevance_score * 0.15`
-  - `history_score * 0.10`
-  - `prerequisite_score * 0.05`
-7. Учитываются completed, missed, declined, dropped и уже завершённые события.
-8. Возвращается top 1–3 события вместе с explainability.
-
-Важно: движок не выбирает единственный самый низкий навык и не строит рекомендацию по одному полю профиля — используется несколько факторов одновременно.
-
-## 9. Как работает game map
-
-Игровая карта — это визуальный слой поверх рекомендаций:
-
-- Current Profile — текущий профиль сотрудника
-- Core Skills — текущий набор ключевых навыков
-- Senior Ready / target zone — целевой грейд
-- `center` — progress и wallet balance
-- `districts` — визуальные группы навыков, locked/unlocked status и impact tags
-- `quest_board` — события непосредственно из recommendation engine с `source: recommendation_engine`
-- `completed_quest_ids` — завершённые активности
-
-Game service не рассчитывает score и не выбирает события по потребностям районов.
-
-Frontend использует Halyk Together как основной пользовательский flow. Career City убран из интерфейса; старые `/api/game/*` endpoints сохранены только для обратной совместимости backend-клиентов.
-
-Quest steps строятся через OpenAI Responses API, если задан `OPENAI_API_KEY`. Backend передаёт модели только выбранное событие и профиль сотрудника, а результатом становится structured JSON из 3–5 шагов. Без ключа используется локальный template fallback, поэтому прохождение квеста не ломается.
-
-Это позволяет сотруднику видеть прогресс как карьерную карту, но объяснение остаётся в рекомендациях, а не только в анимации.
-
-## 10. Команды, coins и ESG
-
-Команды являются optional collaboration layer: создатель добавляет участников, команда запускает и завершает квесты, может быть поставлена на паузу или перейти в `waiting_for_member` после трёх командных квестов. Командная механика не меняет AI score.
-
-Growth Coins не являются деньгами и не формируют рейтинг сотрудников. Их можно потратить на ESG-инициативы после проверки HR: mentoring, Green Office, образовательную программу или workshop. API возвращает `pending_hr_review`, а HR видит только агрегированную вовлечённость через `/api/hr/esg-engagement`.
-
-### Совместный квест
-
-Кнопка «Пройти с коллегой» публикует только выбранную активность и договорённости: диапазон дат, формат (`online_together`, `in_person` или `self_paced_discussion`) и отображаемое имя/псевдоним. Scoring, skill gaps и полная рекомендация в приглашение не попадают.
-
-Перед откликом второй сотрудник вызывает `preview` endpoint. Backend заново проверяет событие через его собственный recommendation context и возвращает `eligible` с персональным объяснением. Если активность не подходит по роли, грейду или развитию, ответ будет `eligible: false`, а pair space не создаётся. После подходящего согласия создаётся pair space с участниками и следующим шагом.
-
-## 11. Как проверить на профиле E0002
+Frontend:
 
 ```bash
-curl http://127.0.0.1:8000/api/employees/E0002/recommendations
+cd ../career-quest-frontend
+npm run build
 ```
 
-Также доступны:
+Docker Compose config:
 
 ```bash
-curl http://127.0.0.1:8000/api/game/E0002/map
-curl http://127.0.0.1:8000/api/hr/dashboard
+cd hack-fe3472cb-aevix
+docker compose config
 ```
 
-## 12. Тест
+## Troubleshooting
+
+### Backend не запускается
+
+- Проверь `.env`
+- Проверь, что порт `8000` свободен
+- Посмотри логи:
 
 ```bash
-python -m pytest app/tests/test_recommendation.py -q
+docker compose logs backend
 ```
 
-## 13. Ограничения и принципы
+### Frontend не видит backend
 
-- Employee видит только себя.
-- HR видит только агрегированную аналитику.
-- Mandatory events не входят в AI-рекомендации.
-- Данные синтетические.
-- Детерминированный fallback engine обязателен.
-- Нет публичного рейтинга сотрудников.
+- Проверь, что backend отвечает: http://localhost:8000/health
+- В Docker Compose frontend собирается с `VITE_API_URL=http://localhost:8000`
+- Пересобери frontend после изменения env:
+
+```bash
+docker compose build frontend
+docker compose up -d frontend
+```
+
+### AI отвечает медленно
+
+- Используй более быструю модель:
+
+```env
+OPENAI_MODEL=gpt-6-sol
+```
+
+- Пока модель думает, frontend показывает progress bar.
+- Без `OPENAI_API_KEY` backend использует template fallback.
+
+### Рекомендации пустые
+
+- Проверь, что demo dataset импортировался при старте backend
+- Проверь employee ID, например `E0002`
+- Перезапусти backend или выполни import endpoint
+
+---
+
+**AEVIX v1.0** - AI Career Quest Platform
