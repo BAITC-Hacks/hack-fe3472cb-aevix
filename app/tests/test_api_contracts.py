@@ -14,8 +14,9 @@ from app.main import app
 
 
 @pytest.fixture
-def client():
+def client(hr_sign_in):
     with TestClient(app, raise_server_exceptions=False) as client:
+        hr_sign_in(client)
         yield client
 
 
@@ -158,7 +159,7 @@ def test_employee_and_game_http_reads(client, path):
     assert response.json() is not None
 
 
-def test_registered_employee_can_select_and_complete_quest_over_http(client):
+def test_registered_employee_can_select_and_complete_quest_over_http(client, employee_sign_in):
     employee = {
         'employee_id': 'HTTP_NEW', 'full_name': 'HTTP New Employee',
         'role': 'Backend Engineer', 'grade': 'Middle',
@@ -168,6 +169,7 @@ def test_registered_employee_can_select_and_complete_quest_over_http(client):
     registration = client.post('/api/employees/register', json=employee)
     assert registration.status_code == 200, registration.text
     assert registration.json()['updated'] is False
+    employee_sign_in(client, 'HTTP_NEW')
     recommendations = client.get('/api/recommendations/HTTP_NEW').json()['recommendations']
     assert recommendations
     event_id = recommendations[0]['event_id']

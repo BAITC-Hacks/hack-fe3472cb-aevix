@@ -17,7 +17,7 @@ from app.services.recommendation_service import complete_quest, get_employee_pro
 from app.services.team_service import complete_team_quest, create_team, get_team, join_team, start_team_quest
 
 
-def test_recommendation_http_explanations_are_opt_in_and_validate_queries(monkeypatch):
+def test_recommendation_http_explanations_are_opt_in_and_validate_queries(monkeypatch, employee_sign_in):
     calls = []
 
     def explain(context, candidates):
@@ -26,6 +26,7 @@ def test_recommendation_http_explanations_are_opt_in_and_validate_queries(monkey
 
     monkeypatch.setattr(recommendation_service, "explain_recommendations", explain)
     with TestClient(app) as client:
+        employee_sign_in(client)
         for route in ("/api/employees/E0002/recommendations", "/api/recommendations/E0002"):
             assert client.get(route).status_code == 200
             assert calls == []
@@ -37,8 +38,9 @@ def test_recommendation_http_explanations_are_opt_in_and_validate_queries(monkey
                 assert client.get(route, params=params).status_code == 422
 
 
-def test_employee_registration_rejects_invalid_fields():
+def test_employee_registration_rejects_invalid_fields(hr_sign_in):
     with TestClient(app) as client:
+        hr_sign_in(client)
         for payload in ({}, {"employee_id": " ", "full_name": "Name"},
                         {"employee_id": "INVALID", "full_name": " "},
                         {"employee_id": "INVALID", "full_name": "Name", "skills": {"SK_PYTHON": -1}}):

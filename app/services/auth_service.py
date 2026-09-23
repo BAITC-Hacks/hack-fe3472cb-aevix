@@ -11,8 +11,9 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.db.auth_models import HrSession
+from app.db.auth_models import AuthSession, EmployeeAccount
 from app.db.database import get_db
+from app.db.models import Employee
 
 COOKIE_NAME = "cq_hr_session"
 _failures: dict[str, list[float]] = {}
@@ -63,36 +64,102 @@ def clear_login_limit(key: str) -> None:
         _failures.pop(key, None)
 
 
-def find_session(request: Request, db: Session) -> HrSession | None:
+def _credential_hash(password_hash: str) -> str:
+    return hashlib.sha256(password_hash.encode()).hexdigest()
+
+
+def find_session(request: Request, db: Session) -> AuthSession | None:
     token = request.cookies.get(COOKIE_NAME)
     if not token or len(token) > 256:
         return None
-    session = db.get(HrSession, hashlib.sha256(token.encode()).hexdigest())
-    if not session or session.expires_at <= datetime.utcnow() or session.username != settings.hr_username or not settings.hr_password_hash:
+    session = db.get(AuthSession, hashlib.sha256(token.encode()).hexdigest())
+    if not session or session.expires_at <= datetime.utcnow():
+        return None
+    if session.role == "hr":
+        if session.employee_id is not None or session.username != settings.hr_username or not settings.hr_password_hash:
+            return None
+        password_hash = settings.hr_password_hash
+    elif session.role == "employee":
+        account = db.get(EmployeeAccount, session.employee_id) if session.employee_id else None
+        if (
+            account is None or not account.active or not account.password_hash
+            or account.username != session.username or db.get(Employee, session.employee_id) is None
+        ):
+            return None
+        password_hash = account.password_hash
+    else:
+        return None
+    if not hmac.compare_digest(session.credential_hash, _credential_hash(password_hash)):
         return None
     return session
 
 
-def require_hr(request: Request, db: Session = Depends(get_db)) -> HrSession:
+def require_session(request: Request, db: Session = Depends(get_db)) -> AuthSession:
     session = find_session(request, db)
     if not session:
-        raise HTTPException(401, "HR sign-in required")
+        raise HTTPException(401, "Sign-in required")
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         check_origin(request)
-        if not hmac.compare_digest(request.headers.get("X-CSRF-Token", ""), session.csrf_token):
+        if not hmac.compare_digest(request.headers.get("X-CSRF-Token", "").encode(), session.csrf_token.encode()):
             raise HTTPException(403, "Invalid CSRF token")
     return session
 
 
-def create_session(db: Session) -> tuple[str, HrSession]:
+def require_hr(session: AuthSession = Depends(require_session)) -> AuthSession:
+    if session.role != "hr":
+        raise HTTPException(403, "HR access required")
+    return session
+
+
+def assert_employee_access(session: AuthSession, employee_id: str, allow_hr: bool = True) -> None:
+    if session.role == "hr":
+        if allow_hr:
+            return
+        raise HTTPException(403, "HR employee preview is read-only")
+    if session.role != "employee" or session.employee_id != employee_id:
+        raise HTTPException(403, "You can only access your own employee profile")
+
+
+def require_employee_access(employee_id: str, session: AuthSession = Depends(require_session)) -> AuthSession:
+    assert_employee_access(session, employee_id)
+    return session
+
+
+def require_employee_actor(employee_id: str, session: AuthSession = Depends(require_session)) -> AuthSession:
+    assert_employee_access(session, employee_id, allow_hr=False)
+    return session
+
+
+def create_session(
+    db: Session, *, role: str = "hr", employee_id: str | None = None, username: str | None = None,
+) -> tuple[str, AuthSession]:
+    if role == "hr":
+        if employee_id is not None or not settings.hr_password_hash:
+            raise HTTPException(503, "HR access has not been configured")
+        if username is not None and username != settings.hr_username:
+            raise HTTPException(401, "Invalid account")
+        username = settings.hr_username
+        password_hash = settings.hr_password_hash
+    elif role == "employee":
+        account = db.get(EmployeeAccount, employee_id) if employee_id else None
+        if (
+            account is None or not account.active or not account.password_hash
+            or db.get(Employee, employee_id) is None or (username is not None and account.username != username)
+        ):
+            raise HTTPException(401, "Invalid account")
+        username = account.username
+        password_hash = account.password_hash
+    else:
+        raise HTTPException(401, "Invalid account")
     token = secrets.token_urlsafe(32)
-    session = HrSession(
+    session = AuthSession(
         token_hash=hashlib.sha256(token.encode()).hexdigest(),
-        username=settings.hr_username,
+        username=username, role=role, employee_id=employee_id,
+        credential_hash=_credential_hash(password_hash),
         csrf_token=secrets.token_urlsafe(32),
         expires_at=datetime.utcnow() + timedelta(hours=max(1, settings.hr_session_hours)),
     )
-    db.query(HrSession).filter(HrSession.expires_at <= datetime.utcnow()).delete()
+    db.query(AuthSession).filter(AuthSession.expires_at <= datetime.utcnow()).delete()
     db.add(session)
     db.commit()
     db.refresh(session)

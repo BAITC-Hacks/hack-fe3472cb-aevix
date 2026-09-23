@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.services.auth_service import require_employee_access
 from app.services.game_service import get_game_map, get_game_progress, get_game_quests
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_employee_access)])
 
 
 @router.get("/{employee_id}/map")

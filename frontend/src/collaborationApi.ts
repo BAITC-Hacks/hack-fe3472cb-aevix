@@ -1,4 +1,4 @@
-import { ApiError, type CompleteResponse } from './api'
+import { apiRequest, type CompleteResponse } from './api'
 
 export interface LearningTeam {
   team_id: string
@@ -53,27 +53,18 @@ interface PairResponse {
   pair_id?: string
 }
 
-const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
 const id = encodeURIComponent
 
 async function request<T>(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST'): Promise<T> {
-  const response = await fetch(BASE + path, {
-    credentials: 'include',
+  return apiRequest<T>(path, {
     method,
     ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
   })
-  if (!response.ok) {
-    let detail = response.statusText
-    try {
-      const value = await response.json()
-      if (typeof value.detail === 'string') detail = value.detail
-    } catch { /* A failed request may have a non-JSON response. */ }
-    throw new ApiError(detail, response.status)
-  }
-  return response.json() as Promise<T>
 }
 
 export const collaborationApi = {
+  teams: (employeeId: string) => request<LearningTeam[]>(`/api/teams?employee_id=${id(employeeId)}`),
+  pairs: (employeeId: string) => request<LearningPair[]>(`/api/pairs?employee_id=${id(employeeId)}`),
   team: (teamId: string) => request<LearningTeam>(`/api/teams/${id(teamId)}`),
   createTeam: (creator_id: string, name: string, max_members: number) => request<LearningTeam>('/api/teams', { creator_id, name, max_members }),
   joinTeam: (teamId: string, employee_id: string) => request<LearningTeam>(`/api/teams/${id(teamId)}/join`, { employee_id }),

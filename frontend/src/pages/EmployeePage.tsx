@@ -7,6 +7,7 @@ import { eventInfo, eventTitle, eventLabel } from '../catalog'
 import { Icon } from '../components/Icon'
 import { ProgressRing } from '../components/ProgressRing'
 import { useI18n } from '../i18n'
+import { useReadOnlyPreview } from '../PreviewContext'
 
 interface Data {
   profile: EmployeeProfile
@@ -16,6 +17,7 @@ interface Data {
 }
 
 export function EmployeePage({ employeeId, onToast, query, page, navigate }: { employeeId: string; onToast: (msg: string) => void; query: string; page: Exclude<Page, 'hr'>; navigate: (page: Page) => void }) {
+  const readOnly = useReadOnlyPreview()
   const { t, lang } = useI18n()
   const c = cityCopy[lang]
   const [data, setData] = useState<Data | null>(null)
@@ -57,6 +59,7 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   }, [load])
 
   const complete = async (eventId: string) => {
+    if (readOnly) return
     if (busyRef.current) return
     busyRef.current = true
     setBusy(eventId)
@@ -80,6 +83,7 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   }
 
   const selectQuest = async (eventId: string) => {
+    if (readOnly) return
     if (busyRef.current) return
     busyRef.current = true
     setBusy(eventId)

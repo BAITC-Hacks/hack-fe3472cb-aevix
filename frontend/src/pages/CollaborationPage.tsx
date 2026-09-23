@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react'
-import { api, ApiError, type EmployeeListItem, type Recommendation } from '../api'
+import { api, ApiError, type EmployeeDirectoryItem, type Recommendation, type TrajectoryItem } from '../api'
 import { collaborationApi as service, type LearningPair, type LearningTeam, type PairFormat, type PairInvitation, type PairPreview } from '../collaborationApi'
 import { eventTitle } from '../catalog'
 import { Icon } from '../components/Icon'
 import { useI18n } from '../i18n'
 import '../components/collaboration.css'
+import { useReadOnlyPreview } from '../PreviewContext'
 
 const copy = {
   ru: {
@@ -14,6 +15,7 @@ const copy = {
     noTeams: 'Вместе к следующей цели', noTeamsHint: 'Создайте команду или присоединитесь к коллегам по коду. Здесь появятся ваши общие квесты.',
     members: 'Участники', you: 'вы', completed: 'Квестов завершено', active: 'Готова к квесту', inProgress: 'Квест выполняется', paused: 'На паузе', waiting: 'Нужен новый участник',
     pause: 'Пауза', resume: 'Продолжить', current: 'Общий квест', chooseQuest: 'Следующий общий квест', start: 'Начать вместе', finish: 'Завершить для команды', completeNote: 'Завершение обновит навыки и награды всех участников.',
+    stepsHint: 'Откройте квест в «Моём обучении» и выполните свои шаги. Общий квест можно завершить, когда все участники закончат свои планы.', stepsIncomplete: 'Не все участники выполнили шаги квеста. Каждый должен завершить свой план в «Моём обучении», затем можно завершить общий квест.', mySteps: 'Ваши шаги',
     waitingHint: 'После трёх квестов пригласите ещё одного коллегу, чтобы продолжить.', teamQuestHint: 'Перед стартом проверим требования к квесту для каждого участника.', noQuests: 'Сейчас нет подходящих рекомендаций. Обновите свою карьерную цель или вернитесь позже.',
     codeHint: 'Передайте этот код коллегам.', copy: 'Копировать', copied: 'Код скопирован.', copyFailed: 'Не удалось скопировать автоматически. Выделите код и скопируйте его.',
     teamCreated: 'Команда создана. Пригласите коллег по коду.', joined: 'Команда открыта.', updated: 'Состояние команды обновлено.', started: 'Общий квест начат.', finished: 'Квест завершён. Прогресс команды обновлён.',
@@ -31,6 +33,7 @@ const copy = {
     noTeams: 'Келесі мақсатқа бірге', noTeamsHint: 'Команда құрыңыз немесе кодпен қосылыңыз. Ортақ квесттеріңіз осында көрсетіледі.',
     members: 'Қатысушылар', you: 'сіз', completed: 'Аяқталған квесттер', active: 'Квестке дайын', inProgress: 'Квест орындалуда', paused: 'Кідіртілген', waiting: 'Жаңа қатысушы қажет',
     pause: 'Кідірту', resume: 'Жалғастыру', current: 'Ортақ квест', chooseQuest: 'Келесі ортақ квест', start: 'Бірге бастау', finish: 'Команда үшін аяқтау', completeNote: 'Аяқтау барлық қатысушылардың дағдылары мен марапаттарын жаңартады.',
+    stepsHint: 'Квестті «Менің оқуым» бөлімінде ашып, өз қадамдарыңызды орындаңыз. Барлық қатысушы жоспарын аяқтағанда ортақ квестті бітіруге болады.', stepsIncomplete: 'Кейбір қатысушылар квест қадамдарын аяқтамаған. Әрқайсысы «Менің оқуым» бөліміндегі жоспарын орындағаннан кейін ортақ квестті аяқтаңыз.', mySteps: 'Сіздің қадамдарыңыз',
     waitingHint: 'Үш квесттен кейін жалғастыру үшін тағы бір әріптесті шақырыңыз.', teamQuestHint: 'Бастамас бұрын әр қатысушының квест талаптарына сәйкестігін тексереміз.', noQuests: 'Әзірге сәйкес ұсыныстар жоқ. Мансап мақсатын жаңартыңыз немесе кейін оралыңыз.',
     codeHint: 'Кодты әріптестерге жіберіңіз.', copy: 'Көшіру', copied: 'Код көшірілді.', copyFailed: 'Автоматты көшіру мүмкін болмады. Кодты белгілеп, көшіріңіз.',
     teamCreated: 'Команда құрылды. Әріптестерді кодпен шақырыңыз.', joined: 'Команда ашылды.', updated: 'Команда күйі жаңартылды.', started: 'Ортақ квест басталды.', finished: 'Квест аяқталды. Команданың ілгерілеуі жаңартылды.',
@@ -48,6 +51,7 @@ const copy = {
     noTeams: 'Reach your next goal together', noTeamsHint: 'Create a team or join your colleagues with a code. Your shared quests will appear here.',
     members: 'Members', you: 'you', completed: 'Quests completed', active: 'Ready for a quest', inProgress: 'Quest in progress', paused: 'Paused', waiting: 'Needs a new member',
     pause: 'Pause', resume: 'Resume', current: 'Shared quest', chooseQuest: 'Next shared quest', start: 'Start together', finish: 'Complete for the team', completeNote: 'Completing updates skills and rewards for every member.',
+    stepsHint: 'Open the quest in My learning and complete your steps. Finish the shared quest once every member has completed their plan.', stepsIncomplete: 'Some members still have unfinished quest steps. Each member needs to complete their plan in My learning before the shared quest can be finished.', mySteps: 'Your steps',
     waitingHint: 'After three quests, invite one more colleague to continue.', teamQuestHint: 'Quest prerequisites are checked for every member before starting.', noQuests: 'No suitable recommendations right now. Update your career goal or come back later.',
     codeHint: 'Share this code with your colleagues.', copy: 'Copy', copied: 'Code copied.', copyFailed: 'Could not copy automatically. Select the code and copy it.',
     teamCreated: 'Team created. Invite colleagues with its code.', joined: 'Team opened.', updated: 'Team status updated.', started: 'Shared quest started.', finished: 'Quest completed. Team progress updated.',
@@ -76,6 +80,7 @@ export function CollaborationPage(props: Props) {
 }
 
 function CollaborationContent({ employeeId, onRefresh }: Props) {
+  const readOnly = useReadOnlyPreview()
   const { lang } = useI18n()
   const c = copy[lang]
   const uid = useId()
@@ -86,9 +91,10 @@ function CollaborationContent({ employeeId, onRefresh }: Props) {
   const [ownInvitations, setOwnInvitations] = useState<PairInvitation[]>([])
   const [previews, setPreviews] = useState<Record<string, PairPreview>>({})
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
-  const [employees, setEmployees] = useState<EmployeeListItem[]>([])
+  const [employees, setEmployees] = useState<EmployeeDirectoryItem[]>([])
   const [selected, setSelected] = useState<Record<string, string>>({})
   const [planned, setPlanned] = useState<string[]>([])
+  const [stepProgress, setStepProgress] = useState<Record<string, { done: number; total: number }>>({})
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
@@ -108,7 +114,16 @@ function CollaborationContent({ employeeId, onRefresh }: Props) {
   const mounted = useRef(false)
   const locked = useRef(false)
   const generation = useRef(0)
-  const disabled = loading || busy !== null
+  const disabled = loading || busy !== null || readOnly
+
+  function updateLearning(rows: TrajectoryItem[]) {
+    setPlanned(rows.filter((row) => ['in_progress', 'selected', 'completed'].includes(row.status)).map((row) => row.event_id))
+    const progress: Record<string, { done: number; total: number }> = {}
+    for (const row of rows.filter((item) => ['selected', 'in_progress', 'overdue'].includes(item.status))) {
+      if (row.total_steps) progress[row.event_id] = { done: row.completed_steps ?? 0, total: row.total_steps }
+    }
+    setStepProgress(progress)
+  }
 
   function remember(kind: keyof Saved, value: string) {
     saved.current = { ...saved.current, [kind]: Array.from(new Set([...saved.current[kind], value])) }
@@ -120,9 +135,8 @@ function CollaborationContent({ employeeId, onRefresh }: Props) {
     const current = ++generation.current
     setLoading(true)
     const results = await Promise.allSettled([
-      api.recommendations(employeeId), api.employees(), service.invitations(employeeId), service.invitations(), api.trajectory(employeeId),
-      Promise.allSettled(saved.current.teams.map((id) => service.team(id))),
-      Promise.allSettled(saved.current.pairs.map((id) => service.pair(id))),
+      api.recommendations(employeeId), api.directory(), service.invitations(employeeId), service.invitations(), api.trajectory(employeeId),
+      service.teams(employeeId), service.pairs(employeeId),
     ] as const)
     if (!mounted.current || current !== generation.current) return
     const [recs, people, invites, allInvites, trajectory, teamResults, pairResults] = results
@@ -134,14 +148,12 @@ function CollaborationContent({ employeeId, onRefresh }: Props) {
       const otherIds = new Set(invites.value.map((invite) => invite.invitation_id))
       setOwnInvitations(allInvites.value.filter((invite) => !otherIds.has(invite.invitation_id)))
     }
-    if (trajectory.status === 'fulfilled') setPlanned(trajectory.value.filter((row) => ['in_progress', 'selected', 'completed'].includes(row.status)).map((row) => row.event_id))
+    if (trajectory.status === 'fulfilled') updateLearning(trajectory.value)
     if (teamResults.status === 'fulfilled') {
-      failed ||= teamResults.value.some((result) => result.status === 'rejected')
-      setTeams(teamResults.value.flatMap((result) => result.status === 'fulfilled' && result.value.member_ids.includes(employeeId) ? [result.value] : []))
+      setTeams(teamResults.value.filter((team) => team.member_ids.includes(employeeId)))
     }
     if (pairResults.status === 'fulfilled') {
-      failed ||= pairResults.value.some((result) => result.status === 'rejected')
-      setPairs(pairResults.value.flatMap((result) => result.status === 'fulfilled' && result.value.members.includes(employeeId) ? [result.value] : []))
+      setPairs(pairResults.value.filter((pair) => pair.members.includes(employeeId)))
     }
     setPreviews({})
     setLoadError(failed)
@@ -163,6 +175,7 @@ function CollaborationContent({ employeeId, onRefresh }: Props) {
   function errorKey(error: unknown): CopyKey {
     if (!(error instanceof ApiError)) return 'error'
     if (error.message.includes('Team is full')) return 'full'
+    if (error.status === 409 && /quest steps/i.test(error.message)) return 'stepsIncomplete'
     if (error.message.includes('prerequisites')) return 'prerequisites'
     if (error.message.toLowerCase().includes('already completed')) return 'alreadyCompleted'
     if (error.message === 'not_member') return 'notMember'
@@ -173,6 +186,7 @@ function CollaborationContent({ employeeId, onRefresh }: Props) {
   }
 
   async function run<T,>(key: string, operation: () => Promise<T>, success: (result: T) => void | Promise<void>) {
+    if (readOnly) return
     if (locked.current || loading) return
     locked.current = true
     setBusy(key)
@@ -199,7 +213,7 @@ function CollaborationContent({ employeeId, onRefresh }: Props) {
       const [recs, trajectory] = await Promise.allSettled([api.recommendations(employeeId), api.trajectory(employeeId)])
       if (!mounted.current) return
       if (recs.status === 'fulfilled') setRecommendations(recs.value.recommendations)
-      if (trajectory.status === 'fulfilled') setPlanned(trajectory.value.filter((row) => ['in_progress', 'selected', 'completed'].includes(row.status)).map((row) => row.event_id))
+      if (trajectory.status === 'fulfilled') updateLearning(trajectory.value)
       if (recs.status === 'rejected' || trajectory.status === 'rejected') setLoadError(true)
     }
   }
@@ -260,7 +274,7 @@ function CollaborationContent({ employeeId, onRefresh }: Props) {
   }
 
   return <div className="collab-page">
-    <div className="collab-heading"><div><span className="collab-kicker"><Icon name="people" size={16} />{c.intro}</span><p>{c.subtitle}</p></div><button className="btn ghost" disabled={disabled} onClick={() => { setFeedback(null); void refresh() }}>{loading ? c.loading : c.refresh}</button></div>
+    <div className="collab-heading"><div><span className="collab-kicker"><Icon name="people" size={16} />{c.intro}</span><p>{c.subtitle}</p></div><button className="btn ghost" disabled={loading || busy !== null} onClick={() => { setFeedback(null); void refresh() }}>{loading ? c.loading : c.refresh}</button></div>
     <div className="collab-tabs" role="tablist" aria-label={c.intro}>{(['teams', 'partners'] as const).map((value) => <button key={value} id={`${uid}-${value}-tab`} role="tab" tabIndex={tab === value ? 0 : -1} aria-selected={tab === value} aria-controls={`${uid}-${value}`} onClick={() => { setTab(value); setFeedback(null) }} onKeyDown={(event) => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
       event.preventDefault()
@@ -281,7 +295,14 @@ function CollaborationContent({ employeeId, onRefresh }: Props) {
           {code(team.team_id)}
           <div className="collab-card-head"><span className="collab-muted">{c.members} · {team.member_ids.length}/{team.max_members}</span><span className="collab-muted">{c.completed} · {team.completed_team_quests}</span></div>
           {members(team.member_ids)}
-          {team.current_quest && <div className="collab-quest"><small>{c.current}</small><h3>{activityTitle(team.current_quest.event_id)}</h3><p className="collab-muted">{c.completeNote}</p><button className="btn" disabled={disabled || team.status !== 'in_progress'} onClick={() => void run(`complete-${team.team_id}`, () => service.completeTeamQuest(team.team_id, team.current_quest!.event_id), (result) => updateTeam(result, 'finished'))}>{busy === `complete-${team.team_id}` ? c.working : c.finish}<Icon name="check" size={16} /></button></div>}
+          {team.current_quest && <div className="collab-quest">
+            <small>{c.current}</small><h3>{activityTitle(team.current_quest.event_id)}</h3>
+            <p className="collab-muted">{c.stepsHint}</p>
+            {stepProgress[team.current_quest.event_id] && <p className="collab-muted">{c.mySteps}: {stepProgress[team.current_quest.event_id].done} / {stepProgress[team.current_quest.event_id].total}</p>}
+            <a className="text-button" href="#/learning">{c.learning}<Icon name="arrow" size={14} /></a>
+            <p className="collab-muted">{c.completeNote}</p>
+            <button className="btn" disabled={disabled || team.status !== 'in_progress' || !!(stepProgress[team.current_quest.event_id] && stepProgress[team.current_quest.event_id].done < stepProgress[team.current_quest.event_id].total)} onClick={() => void run(`complete-${team.team_id}`, () => service.completeTeamQuest(team.team_id, team.current_quest!.event_id), (result) => updateTeam(result, 'finished'))}>{busy === `complete-${team.team_id}` ? c.working : c.finish}<Icon name="check" size={16} /></button>
+          </div>}
           {team.status === 'active' && !team.current_quest && <form className="collab-form collab-divider" onSubmit={(event) => { event.preventDefault(); const eventId = selected[team.team_id] || recommendations[0]?.event_id; if (eventId) void run(`start-${team.team_id}`, () => service.startTeamQuest(team.team_id, eventId), (result) => updateTeam(result, 'started')) }}>
             <label className="collab-field">{c.chooseQuest}<select aria-label={c.chooseQuest} required value={selected[team.team_id] || recommendations[0]?.event_id || ''} disabled={disabled || !recommendations.length} onChange={(event) => setSelected((previous) => ({ ...previous, [team.team_id]: event.target.value }))}>{!recommendations.length && <option value="">—</option>}{eventOptions()}</select></label>
             <p className="collab-muted">{recommendations.length ? c.teamQuestHint : c.noQuests}</p><button className="btn" disabled={disabled || !recommendations.length}>{busy === `start-${team.team_id}` ? c.working : c.start}<Icon name="play" size={14} /></button>

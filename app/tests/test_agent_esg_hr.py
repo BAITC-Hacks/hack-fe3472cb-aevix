@@ -1,43 +1,42 @@
 """Regressions from the agent, wallet and HR update; all data uses the test DB."""
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import json
 from threading import Barrier
 
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy import event
 
 from app.db import database
 from app.db.database import SessionLocal
 from app.db.models import ActivityHistory, CoinTransaction, Employee, ESGContribution, ESGGoal, RoleProfile, Skill, Wallet
-from app.routers import esg_router, hr_router, wallet_router
+from app.main import app
+from app.db.auth_models import EmployeeAccount
+from app.core.config import settings
+from app.services.auth_service import COOKIE_NAME, create_session
 from app.services import esg_service, hr_service, llm_service
 
 
 def api_request(method, path, payload=None):
-    """Exercise FastAPI request validation without requiring an HTTP client package."""
-    app = FastAPI()
-    app.include_router(esg_router.router, prefix="/esg")
-    app.include_router(wallet_router.router, prefix="/wallet")
-    app.include_router(hr_router.router, prefix="/hr")
-    messages = []
-
-    async def receive():
-        return {"type": "http.request", "body": json.dumps(payload).encode(), "more_body": False}
-
-    async def send(message):
-        messages.append(message)
-
-    asyncio.run(app({
-        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
-        "method": method, "scheme": "http", "path": path, "raw_path": path.encode(),
-        "query_string": b"", "headers": [(b"content-type", b"application/json")],
-        "server": ("test", 80), "client": ("test", 1234), "root_path": "",
-    }, receive, send))
-    status = next(message["status"] for message in messages if message["type"] == "http.response.start")
-    body = b"".join(message.get("body", b"") for message in messages if message["type"] == "http.response.body")
-    return status, json.loads(body)
+    """Business-contract checks as the relevant user; auth boundaries have their own suite."""
+    employee_id = payload.get("employee_id", "E0002") if payload else path.split("/")[-1] if path.startswith("/wallet/") else "E0002"
+    with SessionLocal() as db:
+        if path.startswith("/hr/"):
+            token, session = create_session(db)
+        else:
+            if not isinstance(employee_id, str) or not db.get(Employee, employee_id):
+                employee_id = "E0002"
+            if not db.get(EmployeeAccount, employee_id):
+                db.add(EmployeeAccount(employee_id=employee_id, username=employee_id, password_hash=settings.hr_password_hash, active=True))
+                db.commit()
+            token, session = create_session(db, role="employee", employee_id=employee_id)
+        csrf = session.csrf_token
+    route = "/api" + (path.replace("/esg", "/esg-goals", 1) if path.startswith("/esg") else path)
+    with TestClient(app) as client:
+        client.cookies.set(COOKIE_NAME, token, path="/api")
+        response = client.request(method, route, headers={"X-CSRF-Token": csrf}, **({"json": payload} if payload is not None else {}))
+        return response.status_code, response.json()
 
 
 @pytest.mark.parametrize("payload", [
@@ -60,8 +59,8 @@ def test_esg_rejects_invalid_payload_without_server_error(payload):
 
 
 def test_esg_and_wallet_validate_employee_and_expose_goal_target():
-    assert api_request("GET", "/wallet/missing")[0] == 404
-    assert api_request("POST", "/esg/ESG_GREEN_OFFICE/contribute", {"employee_id": "missing", "coins": 10})[0] == 404
+    assert api_request("GET", "/wallet/missing")[0] == 403
+    assert api_request("POST", "/esg/ESG_GREEN_OFFICE/contribute", {"employee_id": "missing", "coins": 10})[0] == 403
     with SessionLocal() as db:
         db.add(Wallet(employee_id="E0002", balance=100))
         db.commit()
@@ -115,7 +114,7 @@ def test_wallet_after_donation_matches_goal_and_hr_totals():
     ("E0002", "ESG_GREEN_OFFICE", 101, 409),
     ("E0001", "ESG_GREEN_OFFICE", 1, 409),
     ("E0002", "MISSING_GOAL", 20, 404),
-    ("MISSING_EMPLOYEE", "ESG_GREEN_OFFICE", 20, 404),
+    ("MISSING_EMPLOYEE", "ESG_GREEN_OFFICE", 20, 403),
 ])
 def test_failed_donation_preserves_wallet_and_ledger(employee_id, goal_id, coins, expected):
     with SessionLocal() as db:

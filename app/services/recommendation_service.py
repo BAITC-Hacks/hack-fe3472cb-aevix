@@ -335,7 +335,13 @@ def get_employee_trajectory(employee_id: str) -> list[dict[str, Any]]:
             "status": row.status, "date": row.date.isoformat() if row.date else None,
             "completion_pct": row.completion_pct, "score": row.score, **details(row.event_id),
         } for row in rows]
+        def represented_status(status: str | None) -> str | None:
+            return "active" if status in ACTIVE_HISTORY_STATUSES | {"selected"} else status
+
+        represented = {(row.event_id, represented_status(row.status)) for row in rows}
         for progress in progress_rows:
+            if (progress.event_id, represented_status(progress.status)) in represented:
+                continue
             completed, total = counts[progress.event_id]
             progress_date = progress.completed_at or progress.started_at
             history.append({

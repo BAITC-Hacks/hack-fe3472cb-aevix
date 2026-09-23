@@ -262,3 +262,25 @@ def test_concurrent_pair_acceptance_creates_one_space(client, pair_employees):
 def test_collaboration_missing_resources_return_404(client, method, path, payload):
     response = client.request(method, path, **({"json": payload} if payload is not None else {}))
     assert response.status_code == 404
+
+
+def test_team_completion_waits_for_existing_member_plan_and_remains_atomic(client, team_events):
+    team_id = _team(client)
+    event_id = team_events[0]
+    base = f"/api/teams/{team_id}"
+    assert client.post(f"{base}/quests/{event_id}/start").status_code == 200
+    plan_path = f"/api/employees/E0001/quests/{event_id}/steps"
+    plan = client.get(plan_path).json()
+    assert plan["steps"] and not plan["can_complete"]
+    response = client.post(f"{base}/quests/{event_id}/complete")
+    assert response.status_code == 409
+    assert client.get(base).json()["completed_team_quests"] == 0
+    with SessionLocal() as db:
+        assert db.query(CoinTransaction).filter_by(event_id=event_id).count() == 0
+        assert db.query(ActivityHistory).filter_by(event_id=event_id, status="completed").count() == 0
+    for step in plan["steps"]:
+        assert client.post(f"{plan_path}/{step['step']}/complete").status_code == 200
+    response = client.post(f"{base}/quests/{event_id}/complete")
+    assert response.status_code == 200, response.text
+    assert response.json()["completed_team_quests"] == 1
+    assert len(response.json()["member_results"]) == 2

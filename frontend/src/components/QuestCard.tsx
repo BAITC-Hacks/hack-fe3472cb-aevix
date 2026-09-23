@@ -2,6 +2,7 @@ import type { Recommendation } from '../api'
 import { eventInfo, eventLabel } from '../catalog'
 import { useI18n, type TKey } from '../i18n'
 import { Icon } from './Icon'
+import { useReadOnlyPreview } from '../PreviewContext'
 
 interface Props {
   index: number
@@ -15,6 +16,7 @@ interface Props {
 
 export function QuestCard({ index, quest, busy, saving, selected, onSelect, onContinue }: Props) {
   const { t, lang } = useI18n()
+  const readOnly = useReadOnlyPreview()
   const info = eventInfo(quest.event_id)
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const nextSession = info?.upcoming_sessions?.filter((value) => new Date(value).getTime() >= today.getTime()).sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]
@@ -118,7 +120,7 @@ export function QuestCard({ index, quest, busy, saving, selected, onSelect, onCo
         ) : (
           <span className="session"><Icon name="clock" size={14} /> {quest.format === 'self_paced' ? copy.selfPaced : copy.schedule}</span>
         )}
-        <button type="button" className="btn btn-foot" disabled={busy} onClick={selected ? onContinue : onSelect} aria-busy={saving}>
+        <button type="button" className="btn btn-foot" disabled={busy || (readOnly && !selected)} onClick={selected ? onContinue : onSelect} aria-busy={saving}>
           <Icon name={selected ? 'arrow' : 'book'} size={16} /> {saving ? copy.completing : selected ? copy.learning : copy.add}
         </button>
       </div>

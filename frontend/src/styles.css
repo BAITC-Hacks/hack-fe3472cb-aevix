@@ -211,9 +211,9 @@ h3 {
   background: var(--surface);
 }
 .workspace-header {
-  min-height: 94px;
+  min-height: 78px;
   margin-left: 236px;
-  padding: 20px 36px;
+  padding: 12px 36px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -293,6 +293,9 @@ main {
   margin-left: 236px;
   padding: 8px 36px 40px;
 }
+.home-main {
+  padding-top: 0;
+}
 .dashboard,.section-page {
   max-width: 1400px;
   margin: 0 auto;
@@ -335,10 +338,10 @@ main {
 }
 .dashboard {
   display: grid;
-  gap: 22px;
+  gap: 18px;
 }
 .dashboard .page-head {
-  margin-bottom: 0;
+  margin: 0;
 }
 .dashboard-hero {
   position: relative;
@@ -1363,7 +1366,7 @@ progress::-webkit-progress-value {
   }
   .workspace-header {
     margin-left: 212px;
-    padding: 20px 26px;
+    padding: 12px 26px;
   }
   main {
     margin-left: 212px;
@@ -1465,8 +1468,8 @@ progress::-webkit-progress-value {
   }
   .workspace-header {
     margin: 0;
-    padding: 14px 20px;
-    min-height: 72px;
+    padding: 10px 20px;
+    min-height: 64px;
     background: var(--surface);
     gap: 16px;
   }
@@ -1495,6 +1498,9 @@ progress::-webkit-progress-value {
     margin: 0;
     padding: 22px 18px calc(90px + env(safe-area-inset-bottom));
   }
+  .home-main {
+    padding-top: 16px;
+  }
   .page-head {
     margin-top: 0;
     margin-bottom: 22px;
@@ -1509,7 +1515,7 @@ progress::-webkit-progress-value {
     font-size: 30px;
   }
   .dashboard {
-    gap: 18px;
+    gap: 16px;
   }
   .dashboard-hero {
     min-height: 0;

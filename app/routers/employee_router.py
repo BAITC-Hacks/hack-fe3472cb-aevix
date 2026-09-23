@@ -4,14 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
+from app.db.auth_models import AuthSession
 from app.db.models import Employee, Event, RoleProfile, Skill
 from app.schemas.employee import EmployeeBase, QuestSelection
-from app.services.auth_service import require_hr
+from app.services.auth_service import require_employee_access, require_employee_actor, require_hr, require_session
 from app.services.import_service import register_employee
 from app.services.quest_service import complete_quest_step, get_quest_steps, select_quest
 from app.services.recommendation_service import complete_quest, get_employee_profile, get_employee_recommendations, get_employee_trajectory
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_session)])
 
 
 @router.post("/register", dependencies=[Depends(require_hr)])
@@ -20,10 +21,13 @@ def register(employee: EmployeeBase) -> dict[str, Any]:
 
 
 @router.get("")
-def list_employees() -> list[dict[str, Any]]:
+def list_employees(session: AuthSession = Depends(require_session)) -> list[dict[str, Any]]:
     db: Session = SessionLocal()
     try:
-        rows = db.query(Employee).all()
+        query = db.query(Employee)
+        if session.role != "hr":
+            query = query.filter_by(employee_id=session.employee_id)
+        rows = query.order_by(Employee.employee_id).all()
         return [{
             "employee_id": row.employee_id,
             "full_name": row.full_name,
@@ -49,7 +53,16 @@ def catalog() -> dict[str, Any]:
         }
 
 
-@router.get("/{employee_id}")
+@router.get("/directory")
+def employee_directory() -> list[dict[str, Any]]:
+    with SessionLocal() as db:
+        return [{
+            "employee_id": row.employee_id, "full_name": row.full_name,
+            "role": row.role, "department": row.department,
+        } for row in db.query(Employee).order_by(Employee.full_name, Employee.employee_id).all()]
+
+
+@router.get("/{employee_id}", dependencies=[Depends(require_employee_access)])
 def get_employee(employee_id: str) -> dict[str, Any]:
     db: Session = SessionLocal()
     try:
@@ -69,17 +82,17 @@ def get_employee(employee_id: str) -> dict[str, Any]:
         db.close()
 
 
-@router.get("/{employee_id}/profile")
+@router.get("/{employee_id}/profile", dependencies=[Depends(require_employee_access)])
 def employee_profile(employee_id: str) -> dict[str, Any]:
     return get_employee_profile(employee_id)
 
 
-@router.get("/{employee_id}/trajectory")
+@router.get("/{employee_id}/trajectory", dependencies=[Depends(require_employee_access)])
 def employee_trajectory(employee_id: str) -> list[dict[str, Any]]:
     return get_employee_trajectory(employee_id)
 
 
-@router.get("/{employee_id}/recommendations")
+@router.get("/{employee_id}/recommendations", dependencies=[Depends(require_employee_access)])
 def employee_recommendations(
     employee_id: str,
     include_explanations: bool = False,
@@ -89,12 +102,12 @@ def employee_recommendations(
     return get_employee_recommendations(employee_id, limit=limit, use_llm=include_explanations, language=language)
 
 
-@router.post("/{employee_id}/quests/{event_id}/complete")
+@router.post("/{employee_id}/quests/{event_id}/complete", dependencies=[Depends(require_employee_actor)])
 def complete_employee_quest(employee_id: str, event_id: str) -> dict[str, Any]:
     return complete_quest(employee_id, event_id)
 
 
-@router.post("/{employee_id}/quests/{event_id}/select")
+@router.post("/{employee_id}/quests/{event_id}/select", dependencies=[Depends(require_employee_actor)])
 def select_employee_quest(employee_id: str, event_id: str, payload: QuestSelection | None = None) -> dict[str, Any]:
     return select_quest(employee_id, event_id, payload.mode if payload else "solo")
 
@@ -103,10 +116,11 @@ def select_employee_quest(employee_id: str, event_id: str, payload: QuestSelecti
 def quest_steps(
     employee_id: str, event_id: str,
     language: str | None = Query(default=None, pattern="^(ru|kk|en)$"),
+    session: AuthSession = Depends(require_employee_access),
 ) -> dict[str, Any]:
-    return get_quest_steps(employee_id, event_id, language=language)
+    return get_quest_steps(employee_id, event_id, language=language, create_if_missing=session.role == "employee")
 
 
-@router.post("/{employee_id}/quests/{event_id}/steps/{step_number}/complete")
+@router.post("/{employee_id}/quests/{event_id}/steps/{step_number}/complete", dependencies=[Depends(require_employee_actor)])
 def complete_step(employee_id: str, event_id: str, step_number: int) -> dict[str, Any]:
     return complete_quest_step(employee_id, event_id, step_number)

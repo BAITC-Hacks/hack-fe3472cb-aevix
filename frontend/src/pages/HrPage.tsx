@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, type HrDashboard } from '../api'
+import { api, ApiError, type HrDashboard } from '../api'
 import { eventTitle, skillName } from '../catalog'
 import { Icon } from '../components/Icon'
 import { useI18n } from '../i18n'
 
-export function HrPage() {
+export function HrPage({ onUnauthorized }: { onUnauthorized: () => void }) {
   const { t, lang } = useI18n()
   const copy = {
     ru: {
       employees: 'Все сотрудники в системе', progress: 'По требованиям к целевой роли и грейду',
-      completion: 'Доля завершённых записей за всю историю', inactive: 'Нет истории или только пропущенное, отклонённое, брошенное и просроченное обучение',
+      completion: 'Доля завершённых записей за всю историю', inactive: 'Нет активного или завершённого обучения',
       gaps: 'Навыки, которых не хватает для карьерных целей сотрудников.',
       popular: 'По числу записей в истории, включая незавершённые мероприятия.',
       risks: 'Грейды, в которых есть неактивные сотрудники.',
@@ -17,7 +17,7 @@ export function HrPage() {
     },
     kk: {
       employees: 'Жүйедегі барлық қызметкерлер', progress: 'Мақсатты рөл мен грейд талаптары бойынша',
-      completion: 'Барлық тарихтағы аяқталған жазбалардың үлесі', inactive: 'Тарихы жоқ немесе тек қатыспаған, бас тартқан, тасталған және мерзімі өткен оқу бар',
+      completion: 'Барлық тарихтағы аяқталған жазбалардың үлесі', inactive: 'Белсенді немесе аяқталған оқу жоқ',
       gaps: 'Қызметкерлердің мансаптық мақсаттарына жету үшін жетіспейтін дағдылар.',
       popular: 'Аяқталмаған іс-шараларды қоса, тарихтағы жазбалар саны бойынша.',
       risks: 'Белсенді емес қызметкерлер бар грейдтер.',
@@ -25,7 +25,7 @@ export function HrPage() {
     },
     en: {
       employees: 'All employees in the system', progress: 'Based on target role and grade requirements',
-      completion: 'Completed records across all learning history', inactive: 'No history, or only missed, declined, dropped or overdue activities',
+      completion: 'Completed records across all learning history', inactive: 'No active or completed learning',
       gaps: 'Skills employees need to develop to reach their career goals.',
       popular: 'By number of history records, including unfinished activities.',
       risks: 'Grades with inactive employees.',
@@ -37,8 +37,11 @@ export function HrPage() {
 
   const load = useCallback(() => {
     setError(null)
-    api.hrDashboard().then(setData, (e: Error) => setError(e.message))
-  }, [])
+    api.hrDashboard().then(setData, (e: Error) => {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) onUnauthorized()
+      else setError(e.message)
+    })
+  }, [onUnauthorized])
 
   useEffect(load, [load])
 

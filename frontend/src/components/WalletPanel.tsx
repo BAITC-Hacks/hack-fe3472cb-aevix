@@ -3,6 +3,7 @@ import { api, ApiError, type EsgGoal, type WalletResponse } from '../api'
 import { useI18n } from '../i18n'
 import { Icon } from './Icon'
 import './wallet.css'
+import { useReadOnlyPreview } from '../PreviewContext'
 
 const copy = {
   ru: {
@@ -54,6 +55,7 @@ export function WalletPanel(props: Props) {
 }
 
 function WalletContent({ employeeId, onBalanceChange }: Props) {
+  const readOnly = useReadOnlyPreview()
   const { lang, t } = useI18n()
   const c = copy[lang]
   const id = useId()
@@ -90,6 +92,7 @@ function WalletContent({ employeeId, onBalanceChange }: Props) {
 
   async function contribute(event: FormEvent<HTMLFormElement>, goal: EsgGoal) {
     event.preventDefault()
+    if (readOnly) return
     if (locked.current || loading || walletError || !wallet) return
     const coins = Number(amounts[goal.goal_id] ?? '')
     if (!Number.isSafeInteger(coins) || coins <= 0 || coins > wallet.balance) {
@@ -154,10 +157,10 @@ function WalletContent({ employeeId, onBalanceChange }: Props) {
               {goal.description && <p className="growth-wallet-hint">{goal.description}</p>}
               <div className="growth-wallet-goal-stats"><span>{c.total}<strong>{number(goal.total_contributed_coins)} GC</strong></span><span>{c.people}<strong>{number(goal.contributors_count)}</strong></span></div>
               {goal.target_coins != null && goal.target_coins > 0 && <progress aria-label={`${c.total}: ${number(goal.total_contributed_coins)} / ${number(goal.target_coins)} GC`} value={Math.min(goal.total_contributed_coins, goal.target_coins)} max={goal.target_coins} />}
-              <form className="growth-wallet-form" aria-busy={busy === goal.goal_id} onSubmit={(event) => void contribute(event, goal)}>
+              {!readOnly && <form className="growth-wallet-form" aria-busy={busy === goal.goal_id} onSubmit={(event) => void contribute(event, goal)}>
                 <label htmlFor={`${id}-${goal.goal_id}`}>{c.amount}</label>
                 <div><input id={`${id}-${goal.goal_id}`} type="number" inputMode="numeric" min="1" max={wallet?.balance ?? 0} step="1" required placeholder="10" value={amounts[goal.goal_id] ?? ''} disabled={!!busy || loading || walletError || !wallet?.balance} onChange={(event) => { setAmounts((previous) => ({ ...previous, [goal.goal_id]: event.target.value })); setMessage(null) }} aria-describedby={`${id}-spend-note`} /><button className="btn" type="submit" aria-busy={busy === goal.goal_id} disabled={!!busy || loading || walletError || !valid}>{busy === goal.goal_id ? c.submitting : c.support}<Icon name="arrow" size={15} /></button></div>
-              </form>
+              </form>}
               {wallet?.balance === 0 && <p className="growth-wallet-hint">{c.needCoins}</p>}
             </div>
           </details>

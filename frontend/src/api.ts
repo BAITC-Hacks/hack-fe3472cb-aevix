@@ -1,4 +1,5 @@
 import type { Catalog } from './catalog'
+import { isPreviewOnly, sessionExpired, sessionHeaders } from './sessionTransport'
 export type Grade = 'Junior' | 'Middle' | 'Senior' | 'Lead'
 
 export interface CareerGoal {
@@ -14,6 +15,8 @@ export interface EmployeeListItem {
   department: string
   target: CareerGoal | null
 }
+
+export type EmployeeDirectoryItem = Pick<EmployeeListItem, 'employee_id' | 'full_name' | 'role' | 'department'>
 
 export interface EmployeeProfile {
   employee_id: string
@@ -223,9 +226,11 @@ export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message) }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(BASE + path, { credentials: 'include', ...init })
+export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  if (isPreviewOnly() && !['GET', 'HEAD', 'OPTIONS'].includes((init?.method ?? 'GET').toUpperCase())) throw new ApiError('Read-only employee preview', 403)
+  const res = await fetch(BASE + path, { ...init, credentials: 'include', headers: sessionHeaders(init) })
   if (!res.ok) {
+    if (res.status === 401) sessionExpired()
     let detail = `${res.status} ${res.statusText}`
     try {
       const body = await res.json()
@@ -238,9 +243,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+const request = apiRequest
+
 export const api = {
   catalog: () => request<Catalog>('/api/employees/catalog'),
   employees: () => request<EmployeeListItem[]>('/api/employees'),
+  directory: () => request<EmployeeDirectoryItem[]>('/api/employees/directory'),
   profile: (id: string) => request<EmployeeProfile>(`/api/employees/${id}/profile`),
   trajectory: (id: string) => request<TrajectoryItem[]>(`/api/employees/${id}/trajectory`),
   recommendations: (id: string, explain = false, language = 'ru', signal?: AbortSignal) => request<RecommendationsResponse>(`/api/employees/${id}/recommendations?include_explanations=${explain}&language=${encodeURIComponent(language)}`, { signal }),
@@ -248,7 +256,7 @@ export const api = {
   complete: (id: string, eventId: string) =>
     request<CompleteResponse>(`/api/employees/${id}/quests/${eventId}/complete`, { method: 'POST' }),
   selectQuest: (id: string, eventId: string) => request<SelectResponse>(`/api/employees/${id}/quests/${eventId}/select`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'solo' }) }),
-  questSteps: (id: string, eventId: string, language = 'ru', signal?: AbortSignal) => request<QuestPlan>(`/api/employees/${encodeURIComponent(id)}/quests/${encodeURIComponent(eventId)}/steps?language=${encodeURIComponent(language)}`, { signal }),
+  questSteps: (id: string, eventId: string, language = 'ru', signal?: AbortSignal, readOnly = false) => request<QuestPlan>(`/api/employees/${encodeURIComponent(id)}/quests/${encodeURIComponent(eventId)}/steps?language=${encodeURIComponent(language)}${readOnly ? '&read_only=true' : ''}`, { signal }),
   completeQuestStep: (id: string, eventId: string, step: number) => request<QuestStepResult>(`/api/employees/${encodeURIComponent(id)}/quests/${encodeURIComponent(eventId)}/steps/${step}/complete`, { method: 'POST' }),
   wallet: (id: string) => request<WalletResponse>(`/api/wallet/${id}`),
   esgGoals: () => request<EsgGoal[]>('/api/esg-goals'),

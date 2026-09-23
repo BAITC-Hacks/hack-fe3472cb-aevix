@@ -66,8 +66,14 @@ OPENAI_MODEL=gpt-6-astra
 
 ### Через API
 
+Импорт доступен только после входа HR. Сначала получите cookie сессии и `csrf_token`:
+
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/import/dataset?dataset_dir=C:/path/to/career_quest_dataset/case_1/career_quest_dataset"
+curl -c /tmp/career-quest-hr.cookies -X POST http://127.0.0.1:8000/api/auth/hr/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"hr","password":"YOUR_HR_PASSWORD"}'
+curl -b /tmp/career-quest-hr.cookies -X POST http://127.0.0.1:8000/api/import/dataset \
+  -H 'X-CSRF-Token: CSRF_TOKEN_FROM_LOGIN'
 ```
 
 ### Через seed при старте
@@ -86,6 +92,39 @@ uvicorn app.main:app --reload
 После запуска Swagger доступен здесь:
 
 - http://127.0.0.1:8000/docs
+
+### Отдельные кабинеты сотрудника и HR
+
+Перед первым входом HR создайте локальные учётные данные из корня backend:
+
+```bash
+venv/bin/python -m app.setup_hr
+```
+
+Команда сохраняет хеш пароля в `.env`, а логин и сгенерированный пароль — в `.local/hr-access.txt` с доступом только владельцу. Оба файла исключены из Git. После настройки перезапустите backend. `venv/bin/python -m app.setup_hr --rotate` заменяет пароль и отзывает существующие сессии; после команды также нужен перезапуск.
+
+Запуск frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+- Сотрудник: http://localhost:5173/employee
+- HR: http://localhost:5173/hr
+
+Сотрудник не видит HR-навигацию. Backend проверяет HR-сессию на **всех** `/api/hr/*`, `/api/import/*` и `POST /api/employees/register`. Сам URL, employee_id или роль, указанная клиентом, доступ не предоставляют. Импорт, регистрация и выход требуют также заголовок `X-CSRF-Token` из ответа входа. Сессия хранится в HttpOnly cookie, действует 8 часов и отзывается при выходе; её токен в БД хранится в виде хеша. Без настроенного `HR_PASSWORD_HASH` вход закрыт.
+
+Новые маршруты входа: `POST /api/auth/hr/login`, `GET /api/auth/session`, `POST /api/auth/logout`.
+
+Сотруднический кабинет сохраняет демонстрационный выбор профиля; индивидуальный вход сотрудников/корпоративный SSO не подключён. Для развёртывания используйте HTTPS, `HR_COOKIE_SECURE=true`, перечислите точные адреса frontend в `ALLOWED_ORIGINS` через запятую. Рекомендуется единый домен с прокси `/api` на backend. Веб-сервер должен отдавать `frontend/dist/index.html` для `/employee` и `/hr`, как это делает Vite. Не публикуйте локальный файл учётных данных.
+
+### Пошаговое обучение
+
+«Моё обучение» показывает описание занятия и план из 3–5 шагов. План создаётся при первом раскрытии и сохраняется для сотрудника и занятия. Отметки сохраняются через `POST /api/employees/{employee_id}/quests/{event_id}/steps/{step_number}/complete`; чтение — через `GET /api/employees/{employee_id}/quests/{event_id}/steps?language=ru` (также `kk`, `en`). Повторное чтение возвращает тот же план.
+
+Если план создан, для финального завершения нужны все его шаги. Подтверждение завершения отдельно начисляет награду и обновляет навыки; для командного квеста оно выполняется в «Совместном обучении». Ранее выбранные задания без сохранённого плана поддерживают прежний API завершения.
 
 ## 6. Список endpoints
 
@@ -328,4 +367,3 @@ python -m pytest app/tests/test_recommendation.py -q
 - Данные синтетические.
 - Детерминированный fallback engine обязателен.
 - Нет публичного рейтинга сотрудников.
-

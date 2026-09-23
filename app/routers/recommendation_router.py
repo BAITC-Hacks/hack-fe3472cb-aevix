@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
+from app.services.auth_service import require_employee_access
 from app.services.recommendation_service import get_employee_recommendations
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_employee_access)])
 
 
 @router.get("/recommendations/{employee_id}")

@@ -6,6 +6,7 @@ import { Icon } from './Icon'
 const statusChip: Record<string, string> = {
   completed: 'ok',
   in_progress: 'info',
+  selected: 'info',
   dropped: 'danger',
   overdue: 'danger',
   no_show: 'danger',
@@ -47,7 +48,7 @@ export function History({ items }: { items: TrajectoryItem[] }) {
           {sorted.map((item) => {
             const date = timestamp(item.date)
             const progress = Math.round(Math.max(0, Math.min(100, item.completion_pct || 0)))
-            const status = Object.prototype.hasOwnProperty.call(statusChip, item.status) ? t(`status_${item.status}` as TKey) : item.status
+            const status = item.status === 'selected' ? { ru: 'В плане', kk: 'Жоспарда', en: 'Planned' }[lang] : Object.prototype.hasOwnProperty.call(statusChip, item.status) ? t(`status_${item.status}` as TKey) : item.status
             return (
               <li key={item.record_id} className="tl-item">
                 <span className={`tl-dot ${item.status}`} aria-hidden="true" />

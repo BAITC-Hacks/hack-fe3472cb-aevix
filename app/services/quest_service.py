@@ -183,7 +183,9 @@ def _validated_plan_steps(generated: Any) -> list[dict[str, Any]]:
     return result
 
 
-def get_quest_steps(employee_id: str, event_id: str, language: str | None = None) -> dict[str, Any]:
+def get_quest_steps(
+    employee_id: str, event_id: str, language: str | None = None, *, create_if_missing: bool = True,
+) -> dict[str, Any]:
     if language is not None and language not in {"ru", "kk", "en"}:
         raise HTTPException(status_code=422, detail="language must be ru, kk or en")
     with SessionLocal() as db:
@@ -194,6 +196,8 @@ def get_quest_steps(employee_id: str, event_id: str, language: str | None = None
         plan = db.get(QuestPlan, (employee_id, event_id))
         if plan is not None:
             return _plan_response(db, plan)
+        if not create_if_missing:
+            raise HTTPException(status_code=404, detail="Quest plan not started")
 
     # A model call never holds the database write lock. Requests for the same
     # employee/event share generation; existing plans are always served unchanged.
