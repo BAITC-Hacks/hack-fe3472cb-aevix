@@ -10,6 +10,8 @@
 .collab-list, .collab-sidebar, .collab-form { display: grid; gap: 16px; min-width: 0; }
 .collab-page h2 { font-size: 17px; margin: 0; }
 .collab-page h3 { font-size: 14px; margin: 0; line-height: 1.5; }
+.collab-page h2, .collab-page h3 { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.collab-page .chip { min-width: 0; max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
 .collab-page .card { display: grid; gap: 18px; }
 .collab-page .btn { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .collab-page input, .collab-page select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; background: var(--surface-2); color: var(--text); font-size: 12px; font-family: inherit; }
