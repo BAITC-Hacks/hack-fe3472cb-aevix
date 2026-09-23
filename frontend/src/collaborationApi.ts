@@ -70,7 +70,7 @@ export const collaborationApi = {
   joinTeam: (teamId: string, employee_id: string) => request<LearningTeam>(`/api/teams/${id(teamId)}/join`, { employee_id }),
   teamStatus: (teamId: string, action: 'pause' | 'resume') => request<LearningTeam>(`/api/teams/${id(teamId)}/${action}`, undefined, 'POST'),
   startTeamQuest: (teamId: string, eventId: string) => request<LearningTeam>(`/api/teams/${id(teamId)}/quests/${id(eventId)}/start`, undefined, 'POST'),
-  completeTeamQuest: (teamId: string, eventId: string) => request<LearningTeam & { member_results: CompleteResponse[] }>(`/api/teams/${id(teamId)}/quests/${id(eventId)}/complete`, undefined, 'POST'),
+  completeTeamQuest: (teamId: string, eventId: string) => request<LearningTeam & { member_results: CompleteResponse[]; completed_member_count?: number }>(`/api/teams/${id(teamId)}/quests/${id(eventId)}/complete`, undefined, 'POST'),
   invitations: (employeeId?: string) => request<PairInvitation[]>(`/api/pairs/invitations${employeeId ? `?employee_id=${id(employeeId)}` : ''}`),
   ownInvitations: (employeeId: string) => request<PairInvitation[]>(`/api/pairs/invitations?employee_id=${id(employeeId)}&own=true`),
   invite: (payload: { inviter_id: string; event_id: string; format: PairFormat; display_mode: 'name' | 'alias'; display_name?: string; start_date?: string; end_date?: string }) => request<PairInvitation>('/api/pairs/invitations', payload),

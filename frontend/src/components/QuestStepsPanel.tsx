@@ -106,7 +106,11 @@ function QuestStepsContent({ employeeId, item, teamMode, busy, saving, onRefresh
       const result = await api.questSteps(employeeId, item.event_id, lang, request.signal, readOnly)
       if (mounted.current && current === generation.current) setPlan(result)
     } catch (failure) {
-      if (mounted.current && current === generation.current && !request.signal.aborted) setError(failure instanceof ApiError && failure.status === 404 ? readOnly && failure.message === 'Quest plan not created yet' ? 'previewMissing' : 'missing' : 'loadError')
+      if (mounted.current && current === generation.current && !request.signal.aborted) {
+        const missingPlan = failure instanceof ApiError && failure.status === 404
+        const pendingPreview = readOnly && missingPlan && ['Quest plan not started', 'Quest plan not created yet'].includes(failure.message)
+        setError(pendingPreview ? 'previewMissing' : missingPlan ? 'missing' : 'loadError')
+      }
     } finally {
       if (mounted.current && current === generation.current) setLoading(false)
     }
