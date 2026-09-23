@@ -4,7 +4,7 @@ import { api, ApiError, type EmployeeListItem } from './api'
 import { authApi, type AuthSession } from './authApi'
 import { PreviewContext } from './PreviewContext'
 import { SESSION_EXPIRED_EVENT, setSessionTransport } from './sessionTransport'
-import { EmployeePicker, initials } from './components/EmployeePicker'
+import { EmployeePicker } from './components/EmployeePicker'
 import { BrandLogo } from './components/BrandLogo'
 import { LoginPage } from './components/LoginPage'
 import { cityCopy } from './cityCopy'
@@ -175,8 +175,18 @@ export default function App() {
   const menuButton = (bottom = false) => <button className={bottom ? (!['home', 'learning', 'city'].includes(currentPage) ? 'active' : '') : 'icon-btn workspace-menu-trigger'} aria-label={words.menu} aria-haspopup="dialog" aria-expanded={menuOpen} aria-controls={menuOpen ? 'workspace-menu' : undefined} onClick={(event) => { menuTrigger.current = event.currentTarget; setMenuOpen(true) }}><Icon name="menu" size={bottom ? 20 : 21} />{bottom && c.more}</button>
   return <>
     <a className="skip-link" href="#workspace" onClick={(event) => { event.preventDefault(); document.getElementById('workspace')?.focus() }}>{c.navigation}</a>
-    <aside className="sidebar"><a className="halyk-brand" aria-label="HalykBank Career City" href="#/home" onClick={(event) => { event.preventDefault(); navigate('home') }}><BrandLogo /></a><nav className="side-nav" aria-label={c.navigation}>{items.map((item) => <button key={item.page} className={currentPage === item.page ? 'active' : ''} aria-current={currentPage === item.page ? 'page' : undefined} onClick={() => navigate(item.page)}><Icon name={item.icon} size={21} />{item.label}</button>)}</nav><div className="sidebar-settings">{languageControls}{themeControl}</div></aside>
-    <header className="workspace-header"><label className="global-search"><Icon name="search" size={21} /><input aria-label={c.search} placeholder={c.search} value={query} onKeyDown={(event) => { if (event.key === 'Enter') navigate('recommendations') }} onChange={(event) => { setQuery(event.target.value); if (currentPage !== 'recommendations') navigate('recommendations') }} />{query && <button className="search-clear" onClick={() => setQuery('')} aria-label={c.clear}><Icon name="close" size={16} /></button>}</label><div className="workspace-account-controls"><div className="header-profile">{isHr ? <EmployeePicker employees={employees} selectedId={employeeId} onSelect={selectEmployee} preview /> : <div className="own-profile" aria-label={words.account}><span className="picker-avatar" aria-hidden="true">{initials(selected?.full_name ?? employeeId)}</span><span className="picker-copy"><span className="picker-name">{selected?.full_name ?? session.username}</span><span className="picker-role">{selected?.role ?? employeeId}</span></span></div>}</div>{menuButton()}</div></header>
+    <aside className="sidebar"><a className="halyk-brand" aria-label="HalykBank Career City" href="#/home" onClick={(event) => { event.preventDefault(); navigate('home') }}><BrandLogo /></a><nav className="side-nav" aria-label={c.navigation}>{items.map((item) => <button key={item.page} className={currentPage === item.page ? 'active' : ''} aria-current={currentPage === item.page ? 'page' : undefined} onClick={() => navigate(item.page)}><Icon name={item.icon} size={21} />{item.label}</button>)}</nav><div className="sidebar-settings">{languageControls}{themeControl}<button className="workspace-logout" disabled={authBusy} onClick={() => void logout()}><Icon name="logout" size={19} />{authBusy ? words.exiting : words.logout}</button></div></aside>
+    <header className={`workspace-header${isHr ? '' : ' employee-header'}`}>
+      <label className="global-search">
+        <Icon name="search" size={21} />
+        <input aria-label={c.search} placeholder={c.search} value={query} onKeyDown={(event) => { if (event.key === 'Enter') navigate('recommendations') }} onChange={(event) => { setQuery(event.target.value); if (currentPage !== 'recommendations') navigate('recommendations') }} />
+        {query && <button className="search-clear" onClick={() => setQuery('')} aria-label={c.clear}><Icon name="close" size={16} /></button>}
+      </label>
+      <div className="workspace-account-controls">
+        {isHr && <div className="header-profile"><EmployeePicker employees={employees} selectedId={employeeId} onSelect={selectEmployee} preview /></div>}
+        {menuButton()}
+      </div>
+    </header>
     <div className="mobile-settings"><a className="mobile-brand" href="#/home" aria-label="HalykBank Career City" onClick={(event) => { event.preventDefault(); navigate('home') }}><BrandLogo compact /></a>{languageControls}{themeControl}</div>
     <main id="workspace" tabIndex={-1} className={currentPage === 'home' ? 'home-main' : 'page-main'}>
       {isHr && currentPage !== 'hr' && ready && employeeId && <aside className="employee-preview-banner"><Icon name="shield" size={19} /><div><strong>{words.preview} · {selected?.full_name ?? employeeId}</strong><p>{words.readOnly}</p></div><button className="text-button" onClick={() => navigate('hr')}>{words.hr}<Icon name="arrow" size={15} /></button></aside>}
