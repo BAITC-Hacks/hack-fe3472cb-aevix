@@ -21,6 +21,13 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const busyRef = useRef(false)
+  const loadVersion = useRef(0)
+  const copy = {
+    ru: { selected: 'Занятие добавлено в ваше обучение', refresh: 'Не удалось обновить данные. Повторите загрузку.', failed: 'Не удалось сохранить изменение. Попробуйте ещё раз.', duplicate: 'Это занятие уже завершено. Обновили ваш прогресс.' },
+    kk: { selected: 'Сабақ оқуыңызға қосылды', refresh: 'Деректер жаңартылмады. Қайта жүктеп көріңіз.', failed: 'Өзгеріс сақталмады. Қайта көріңіз.', duplicate: 'Бұл сабақ аяқталған. Прогресіңіз жаңартылды.' },
+    en: { selected: 'Activity added to your learning', refresh: 'Could not refresh your data. Please try again.', failed: 'Could not save the change. Please try again.', duplicate: 'This activity was already completed. Your progress has been refreshed.' },
+  }[lang]
 
   const mounted = useRef(true)
   useEffect(() => {
@@ -29,6 +36,7 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   }, [])
 
   const load = useCallback(async () => {
+    const version = ++loadVersion.current
     setError(null)
     try {
       const [profile, recs, history, map] = await Promise.all([
@@ -37,9 +45,9 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
         api.trajectory(employeeId),
         api.map(employeeId),
       ])
-      if (mounted.current) setData({ profile, recs, history, map })
+      if (mounted.current && version === loadVersion.current) setData({ profile, recs, history, map })
     } catch (e) {
-      if (mounted.current) setError((e as Error).message)
+      if (mounted.current && version === loadVersion.current) setError((e as Error).message)
     }
   }, [employeeId])
 
@@ -49,7 +57,8 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   }, [load])
 
   const complete = async (eventId: string) => {
-    if (busy) return
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(eventId)
     try {
       const res = await api.complete(employeeId, eventId)
@@ -63,13 +72,33 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) await load()
       if (!mounted.current) return
-      onToast(`⚠ ${(e as Error).message}`)
+      onToast(`⚠ ${e instanceof ApiError && e.status === 409 ? copy.duplicate : copy.failed}`)
     } finally {
+      busyRef.current = false
       if (mounted.current) setBusy(null)
     }
   }
 
-  if (error)
+  const selectQuest = async (eventId: string) => {
+    if (busyRef.current) return
+    busyRef.current = true
+    setBusy(eventId)
+    try {
+      await api.selectQuest(employeeId, eventId)
+      await load()
+      if (mounted.current) onToast(copy.selected)
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) await load()
+      if (mounted.current) onToast(`⚠ ${copy.failed}`)
+    } finally {
+      busyRef.current = false
+      if (mounted.current) setBusy(null)
+    }
+  }
+
+  const refreshNotice = error && data ? <div className="refresh-notice" role="alert"><p>{copy.refresh}</p><button className="btn ghost" onClick={load}>{t('retry')}</button></div> : null
+
+  if (error && !data)
     return (
       <div className="card state error">
         <p>{t('error_backend')}</p>
@@ -101,10 +130,11 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   const currentInfo = current ? eventInfo(current.event_id) : null
   const wallet = map.center?.wallet_balance
 
-  if (page !== 'home') return <EmployeeSection page={page} profile={p} recs={recs} history={history} map={map} query={query} busy={busy} onComplete={complete} navigate={navigate} />
+  if (page !== 'home') return <>{refreshNotice}<EmployeeSection page={page} profile={p} recs={recs} history={history} map={map} query={query} busy={busy} onComplete={complete} onSelect={selectQuest} onRefresh={load} navigate={navigate} /></>
 
   return (
     <div className="dashboard">
+      {refreshNotice}
       <header className="page-head home-heading"><div><span className="eyebrow">{c.greeting}</span><h1>{p.full_name.split(' ')[0]}<span className="greeting-dot">.</span></h1><p>{c.overview}</p></div><span className="chip primary">{p.grade} · {p.role}</span></header>
       <section className="career-direction" aria-label={c.how}>
         <div className="direction-icon"><Icon name="route" size={24} /></div>

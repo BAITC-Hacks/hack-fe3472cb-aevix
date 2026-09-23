@@ -141,7 +141,7 @@ export default function App() {
 
       {toast && (
         <div className="toast" role="status">
-          <Icon name="check" /> {toast}
+          <Icon name={toast.startsWith('⚠') ? 'bell' : 'check'} /> {toast.replace(/^⚠\s*/, '')}
         </div>
       )}
     </>

@@ -7,10 +7,11 @@ from app.db.database import SessionLocal
 from app.utils.grade import get_role_target
 
 
-def compute_progress_to_next_grade(employee: Employee) -> float:
+def compute_progress_to_next_grade(employee: Employee, target_role: str | None = None, target_grade: str | None = None) -> float:
     db: Session = SessionLocal()
     try:
-        target_role, target_grade = get_role_target(employee.__dict__, employee.role)
+        if target_role is None or target_grade is None:
+            target_role, target_grade = get_role_target(employee.__dict__, employee.role)
         profile = db.query(RoleProfile).filter_by(role=target_role, grade=target_grade).first()
         if not profile:
             return 100.0

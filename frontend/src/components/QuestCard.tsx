@@ -8,18 +8,21 @@ interface Props {
   quest: Recommendation
   busy: boolean
   saving: boolean
-  onComplete: () => void
+  selected: boolean
+  onSelect: () => void
+  onContinue: () => void
 }
 
-export function QuestCard({ index, quest, busy, saving, onComplete }: Props) {
+export function QuestCard({ index, quest, busy, saving, selected, onSelect, onContinue }: Props) {
   const { t, lang } = useI18n()
   const info = eventInfo(quest.event_id)
-  const nextSession = info?.upcoming_sessions?.[0]
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const nextSession = info?.upcoming_sessions?.filter((value) => new Date(value).getTime() >= today.getTime()).sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]
   const locale = lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-GB' : 'ru-RU'
   const copy = {
-    ru: { relevance: 'Релевантность', details: 'Почему подходит и что даст', skills: 'Навыки после обучения', target: 'цель', selfPaced: 'В своём темпе', completed: 'Уже завершено', similar: 'Похожих занятий завершено', missed: 'Пропуски и отказы учтены', completing: 'Сохраняем…' },
-    kk: { relevance: 'Сәйкестік', details: 'Неге ұсынылады және нәтижесі', skills: 'Оқудан кейінгі дағдылар', target: 'мақсат', selfPaced: 'Өз қарқыныңызбен', completed: 'Аяқталған', similar: 'Аяқталған ұқсас сабақтар', missed: 'Қатыспау мен бас тарту ескерілген', completing: 'Сақталуда…' },
-    en: { relevance: 'Relevance', details: 'Why it fits and what you’ll learn', skills: 'Skills after learning', target: 'target', selfPaced: 'At your own pace', completed: 'Already completed', similar: 'Similar activities completed', missed: 'Missed or declined activities considered', completing: 'Saving…' },
+    ru: { relevance: 'Релевантность', details: 'Почему подходит и что даст', skills: 'Навыки после обучения', target: 'цель', selfPaced: 'В своём темпе', completed: 'Уже завершено', similar: 'Похожих занятий завершено', missed: 'Пропуски и отказы учтены', completing: 'Добавляем…', add: 'Добавить в обучение', learning: 'К моему обучению', selected: 'Уже в обучении', schedule: 'Дата уточняется' },
+    kk: { relevance: 'Сәйкестік', details: 'Неге ұсынылады және нәтижесі', skills: 'Оқудан кейінгі дағдылар', target: 'мақсат', selfPaced: 'Өз қарқыныңызбен', completed: 'Аяқталған', similar: 'Аяқталған ұқсас сабақтар', missed: 'Қатыспау мен бас тарту ескерілген', completing: 'Қосылуда…', add: 'Оқуыма қосу', learning: 'Оқуыма өту', selected: 'Оқуға қосылған', schedule: 'Күні нақтыланады' },
+    en: { relevance: 'Relevance', details: 'Why it fits and what you’ll learn', skills: 'Skills after learning', target: 'target', selfPaced: 'At your own pace', completed: 'Already completed', similar: 'Similar activities completed', missed: 'Missed or declined activities considered', completing: 'Adding…', add: 'Add to my learning', learning: 'Go to my learning', selected: 'In your learning', schedule: 'Date to be confirmed' },
   }[lang]
   const score = Number.isFinite(quest.score) ? Math.round(Math.min(1, Math.max(0, quest.score)) * 100) : 0
   const skill = quest.affected_skills[0]
@@ -47,6 +50,7 @@ export function QuestCard({ index, quest, busy, saving, onComplete }: Props) {
       </div>
 
       <div className="meta">
+        {selected && <span className="chip ok"><Icon name="check" size={13} />{copy.selected}</span>}
         <span className={`chip ${quest.priority === 'high' ? 'danger' : quest.priority === 'medium' ? 'accent' : 'primary'}`}>
           {t(`priority_${quest.priority}` as TKey)}
         </span>
@@ -112,10 +116,10 @@ export function QuestCard({ index, quest, busy, saving, onComplete }: Props) {
             <time dateTime={nextSession}>{validSession.toLocaleDateString(locale, { day: 'numeric', month: 'short' })}</time>
           </span>
         ) : (
-          <span className="session"><Icon name="clock" size={14} /> {copy.selfPaced}</span>
+          <span className="session"><Icon name="clock" size={14} /> {quest.format === 'self_paced' ? copy.selfPaced : copy.schedule}</span>
         )}
-        <button type="button" className="btn btn-foot" disabled={busy} onClick={onComplete} aria-busy={saving}>
-          <Icon name="check" size={16} /> {saving ? copy.completing : t('mark_done')}
+        <button type="button" className="btn btn-foot" disabled={busy} onClick={selected ? onContinue : onSelect} aria-busy={saving}>
+          <Icon name={selected ? 'arrow' : 'book'} size={16} /> {saving ? copy.completing : selected ? copy.learning : copy.add}
         </button>
       </div>
     </article>

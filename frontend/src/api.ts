@@ -65,6 +65,9 @@ export interface Recommendation {
   score: number
   priority: 'high' | 'medium' | 'low'
   affected_skills: AffectedSkill[]
+  employee_friendly_reason?: string
+  risk_note?: string
+  expected_outcome?: string
   reason: string
   game_message: string
   title?: string
@@ -82,6 +85,8 @@ export interface RecommendationsResponse {
   target_grade: Grade
   progress_to_next_grade: number
   recommendations: Recommendation[]
+  explanation_provider?: 'template' | 'openai'
+  explanation_summary?: string
 }
 
 export interface CityProgress {
@@ -107,6 +112,7 @@ export interface GameMap {
   center?: { name: string; level: number; city_level: number; wallet_balance: number; progress_to_next_grade: number }
   districts?: { id: string; name: string; progress: number; status: string; related_skills: string[]; impact_tags: string[]; recommended_event_ids: string[] }[]
   completed_quest_ids?: string[]
+  selected_quests?: { event_id: string; status: string; mode: 'solo' | 'team' }[]
   quest_board?: { event_id: string; title: string; source: string; score: number }[]
 }
 
@@ -130,6 +136,38 @@ export interface HrDashboard {
   events_completion_rate: number
   popular_events: { event_id: string; count: number }[]
   risky_segments: string[]
+}
+
+export interface WalletResponse {
+  employee_id: string
+  balance: number
+  transactions: { transaction_id: string; event_id: string | null; amount: number; reason: string; created_at: string }[]
+}
+
+export interface EsgGoal {
+  goal_id: string
+  title: string
+  category: string
+  description: string | null
+  total_contributed_coins: number
+  contributors_count: number
+  target_coins?: number
+  status: string
+}
+
+export interface ContributionResponse extends EsgGoal {
+  employee_id: string
+  coins_spent: number
+  wallet_balance: number
+}
+
+export interface SelectResponse {
+  employee_id: string
+  event_id: string
+  title: string
+  status: string
+  mode: 'solo' | 'team'
+  next_step: string
 }
 
 // В dev-режиме Vite проксирует /api на бэкенд (см. vite.config.ts).
@@ -159,9 +197,13 @@ export const api = {
   employees: () => request<EmployeeListItem[]>('/api/employees'),
   profile: (id: string) => request<EmployeeProfile>(`/api/employees/${id}/profile`),
   trajectory: (id: string) => request<TrajectoryItem[]>(`/api/employees/${id}/trajectory`),
-  recommendations: (id: string) => request<RecommendationsResponse>(`/api/employees/${id}/recommendations`),
+  recommendations: (id: string, explain = false, language = 'ru', signal?: AbortSignal) => request<RecommendationsResponse>(`/api/employees/${id}/recommendations?include_explanations=${explain}&language=${encodeURIComponent(language)}`, { signal }),
   map: (id: string) => request<GameMap>(`/api/game/${id}/map`),
   complete: (id: string, eventId: string) =>
     request<CompleteResponse>(`/api/employees/${id}/quests/${eventId}/complete`, { method: 'POST' }),
+  selectQuest: (id: string, eventId: string) => request<SelectResponse>(`/api/employees/${id}/quests/${eventId}/select`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'solo' }) }),
+  wallet: (id: string) => request<WalletResponse>(`/api/wallet/${id}`),
+  esgGoals: () => request<EsgGoal[]>('/api/esg-goals'),
+  contribute: (id: string, goalId: string, coins: number) => request<ContributionResponse>(`/api/esg-goals/${goalId}/contribute`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employee_id: id, coins }) }),
   hrDashboard: () => request<HrDashboard>('/api/hr/dashboard'),
 }
