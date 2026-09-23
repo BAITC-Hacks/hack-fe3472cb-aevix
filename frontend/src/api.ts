@@ -1,3 +1,4 @@
+import type { Catalog } from './catalog'
 export type Grade = 'Junior' | 'Middle' | 'Senior' | 'Lead'
 
 export interface CareerGoal {
@@ -125,6 +126,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  catalog: () => request<Catalog>('/api/employees/catalog'),
   employees: () => request<EmployeeListItem[]>('/api/employees'),
   profile: (id: string) => request<EmployeeProfile>(`/api/employees/${id}/profile`),
   trajectory: (id: string) => request<TrajectoryItem[]>(`/api/employees/${id}/trajectory`),

@@ -1,13 +1,16 @@
+import { useId } from 'react'
+
 export function ProgressRing({ value, caption, size = 120 }: { value: number; caption: string; size?: number }) {
+  const gradientId = useId()
   const stroke = 11
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
-  const pct = Math.max(0, Math.min(100, value))
+  const pct = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0
   return (
-    <div className="ring" style={{ width: size, height: size }}>
-      <svg width={size} height={size}>
+    <div className="ring" role="progressbar" aria-label={caption} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} style={{ width: `var(--ring-size, ${size}px)`, height: `var(--ring-size, ${size}px)` }}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
         <defs>
-          <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="var(--primary)" />
             <stop offset="100%" stopColor="var(--primary-2)" />
           </linearGradient>
@@ -18,7 +21,7 @@ export function ProgressRing({ value, caption, size = 120 }: { value: number; ca
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="url(#ringGrad)"
+          stroke={`url(#${gradientId})`}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}

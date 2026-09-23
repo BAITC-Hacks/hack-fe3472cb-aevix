@@ -27,27 +27,8 @@ def _load_skill_map() -> dict[str, str]:
     return skill_map
 
 
-def _calculate_progress(employee: Employee, target_role: str, target_grade: str) -> float:
-    db: Session = SessionLocal()
-    try:
-        profile = db.query(RoleProfile).filter_by(role=target_role, grade=target_grade).first()
-    finally:
-        db.close()
-    if not profile:
-        return 100.0
-
-    required_skills = profile.required_skills or {}
-    critical = set(profile.critical_skills or [])
-    weighted_values = []
-    for skill_id, required_level in required_skills.items():
-        current_level = int((employee.skills or {}).get(skill_id, 0))
-        progress = min(current_level / max(required_level, 1), 1.0)
-        weight = 1.5 if skill_id in critical else 1.0
-        weighted_values.append(progress * weight)
-
-    if not weighted_values:
-        return 100.0
-    return round(sum(weighted_values) / sum([1.5 if skill_id in critical else 1.0 for skill_id in required_skills.keys()]) * 100, 2)
+# Shared by employee, game and HR services.
+from app.services.progress_service import compute_progress_to_next_grade as _calculate_progress
 
 
 def get_employee_profile(employee_id: str) -> dict[str, Any]:
@@ -266,20 +247,26 @@ def complete_quest(employee_id: str, event_id: str) -> dict[str, Any]:
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
 
-        progress_before = _calculate_progress(employee, (employee.career_goal or {}).get("target_role") or employee.role, (employee.career_goal or {}).get("target_grade") or next_grade(employee.grade or "Junior"))
-        record_id = f"R_{employee_id}_{event_id}_{len(db.query(ActivityHistory).filter_by(employee_id=employee_id).all()) + 1}"
-        db.add(ActivityHistory(
-            record_id=record_id,
-            employee_id=employee_id,
-            event_id=event_id,
-            date=date.today(),
-            status="completed",
-            completion_pct=100,
-            score=100,
-            assigned_by="self",
-        ))
+        if db.query(ActivityHistory).filter_by(employee_id=employee_id, event_id=event_id, status="completed").first():
+            raise HTTPException(status_code=409, detail="Quest already completed")
 
-        target_profile = db.query(RoleProfile).filter_by(role=(employee.career_goal or {}).get("target_role") or employee.role, grade=(employee.career_goal or {}).get("target_grade") or next_grade(employee.grade or "Junior")).first()
+        progress_before = _calculate_progress(employee, *get_role_target(employee.__dict__, employee.role))
+        active = db.query(ActivityHistory).filter_by(employee_id=employee_id, event_id=event_id, status="in_progress").all()
+        if active:
+            for record in active:
+                record.status = "completed"
+                record.completion_pct = 100
+                record.date = date.today()
+                record.score = 100
+        else:
+            from uuid import uuid4
+            db.add(ActivityHistory(
+                record_id=f"R_{uuid4().hex}", employee_id=employee_id, event_id=event_id,
+                date=date.today(), status="completed", completion_pct=100, score=100, assigned_by="self",
+            ))
+
+        target_role, target_grade = get_role_target(employee.__dict__, employee.role)
+        target_profile = db.query(RoleProfile).filter_by(role=target_role, grade=target_grade).first()
         required_skills = (target_profile.required_skills if target_profile else None) or {}
 
         before_after = {}
@@ -295,7 +282,7 @@ def complete_quest(employee_id: str, event_id: str) -> dict[str, Any]:
 
         db.commit()
         db.refresh(employee)
-        progress_after = _calculate_progress(employee, (employee.career_goal or {}).get("target_role") or employee.role, (employee.career_goal or {}).get("target_grade") or next_grade(employee.grade or "Junior"))
+        progress_after = _calculate_progress(employee, *get_role_target(employee.__dict__, employee.role))
         return {
             "employee_id": employee_id,
             "completed_quest": event.title,

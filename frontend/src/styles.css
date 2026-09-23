@@ -202,7 +202,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 24px; }
 /* ---------- Progress ring ---------- */
 
 .ring { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
-.ring svg { transform: rotate(-90deg); }
+.ring svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
 .ring-label { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
 .ring-value { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; }
 .ring-caption { font-size: 11px; color: var(--text-3); font-weight: 600; line-height: 1.2; max-width: 80px; }
@@ -532,8 +532,8 @@ main { margin-left: 232px; max-width: none; padding: 0 28px 36px; }
 .hero-progress h2 { font-size: 15px; margin: 0 0 14px; display: flex; justify-content: space-between; }
 .hero-progress h2 svg { color: var(--primary); }
 .progress-content { display: flex; align-items: center; gap: 14px; }
-.progress-content .ring { width: 100px; height: 100px; }
-.progress-content .ring svg { width: 100px; height: 100px; }
+.progress-content .ring { --ring-size: 100px; }
+
 .progress-content .ring-caption { display: none; }
 .progress-content > div:last-child { display: grid; gap: 3px; }
 .progress-content small, .progress-content span { color: var(--text-2); font-size: 11px; }
@@ -583,6 +583,118 @@ main { margin-left: 232px; max-width: none; padding: 0 28px 36px; }
 @media (min-width: 1700px) { .city-hero { min-height: 570px; padding-top: 160px; }.overview-grid > .card { min-height: 270px; }.workspace-header { height: 100px; }.city-hero { margin-top: -100px; } }
 @media (max-height: 850px) { .sidebar-quote { padding-bottom: 55px; margin-top: 28px; }.sidebar { overflow-y: auto; }.side-nav { gap: 3px; }.side-nav button { padding-top: 12px; padding-bottom: 12px; } }
 @media (max-width: 1250px) { .sidebar { width: 205px; padding-left: 10px; padding-right: 10px; }.workspace-header, main { margin-left: 205px; }.hero-progress { width: 235px; }.city-level { display: none; }.hero-copy { max-width: 450px; }.city-stats { gap: 15px; }.overview-grid { grid-template-columns: 1fr 1fr; }.achievements-card { grid-column: 1 / -1; }.achievements-card .achievement-row { display: inline-flex; width: 33.333%; vertical-align: top; padding: 0 12px; border: 0; }.overview-grid > .achievements-card { min-height: 0; }.banner-brand { display: none; } }
-@media (max-width: 1000px) { .hero-progress { width: 210px; top: 112px; right: 20px; padding: 15px; }.progress-content { gap: 8px; }.progress-content .ring, .progress-content .ring svg { width: 80px; height: 80px; }.ring-value { font-size: 22px; }.hero-copy { max-width: 360px; }.hero-copy h1 { font-size: 43px; }.hero-headline { font-size: 19px; }.city-hero { padding-left: 28px; }.hero-progress { top: 335px; }.pin-skills { bottom: 180px; left: auto; right: 25px; }.pin-career { display: none; }.growth-banner { flex-wrap: wrap; }.growth-banner .btn { margin-left: 54px; }.next-course { grid-template-columns: 70px 1fr; gap: 12px; } }
-@media (max-width: 720px) { .sidebar { display: none; }.workspace-header { margin: 0; height: 80px; padding: 14px 16px; gap: 12px; }.global-search { flex: 1; width: auto; padding: 11px; }.global-search input { font-size: 11px; }.global-search > span { display: none; }.header-profile { max-width: 42%; }.header-profile .picker-btn > svg:first-child, .header-profile .picker-btn .label { display: none; }.header-profile .picker-btn .value { font-size: 11px; }.header-profile .picker-btn { gap: 5px; }.header-profile .picker-btn > svg { flex-shrink: 0; }main { margin: 0; padding: 0 16px 95px; }.city-hero { margin: -80px -16px 0; padding: 113px 22px 35px; min-height: 560px; }.city-hero::before { background-position: 58% center; }.city-hero::after { background: linear-gradient(0deg, var(--bg), transparent 30%), linear-gradient(90deg, #f8fafcf0, #fff9eea8 55%, #ffffff22); }.hero-copy h1 { font-size: clamp(38px, 9vw, 58px); letter-spacing: -2px; }.hero-headline { font-size: 20px; }.city-stats { gap: 18px; margin: 24px 0; }.city-stats > div { gap: 7px; }.city-stats > div > svg { width: 23px; }.city-stats b { font-size: 21px; }.city-stats small { font-size: 9px; }.hero-progress { top: auto; bottom: 23px; right: 20px; width: 200px; padding: 13px; }.hero-progress h2 { font-size: 13px; margin-bottom: 8px; }.progress-content .ring, .progress-content .ring svg { width: 65px; height: 65px; }.ring-value { font-size: 19px; }.progress-content strong { font-size: 16px; }.pin-skills { bottom: 62px; left: 22px; right: auto; font-size: 10px; padding: 8px; }.overview-grid { grid-template-columns: 1fr; }.overview-grid > .achievements-card { grid-column: auto; }.achievements-card .achievement-row { display: flex; width: 100%; padding: 12px 0; border-bottom: 1px solid var(--border); }.achievements-card .achievement-row:last-child { border-bottom: 0; }.overview-grid > .card { min-height: 0; padding: 20px; }.next-course { grid-template-columns: 100px 1fr; }.course-art { min-height: 150px; }.growth-banner { padding: 22px; gap: 16px; }.growth-banner p { font-size: 12px; }.growth-banner .btn { margin-left: 0; width: 100%; justify-content: space-between; }.city-dashboard { gap: 16px; }.eyebrow { font-size: 9px; letter-spacing: 2px; }.bottom-nav { z-index: 40; } }
+@media (max-width: 1000px) { .hero-progress { width: 210px; top: 112px; right: 20px; padding: 15px; }.progress-content { gap: 8px; }.progress-content .ring { --ring-size: 80px; }.ring-value { font-size: 22px; }.hero-copy { max-width: 360px; }.hero-copy h1 { font-size: 43px; }.hero-headline { font-size: 19px; }.city-hero { padding-left: 28px; }.hero-progress { top: 335px; }.pin-skills { bottom: 180px; left: auto; right: 25px; }.pin-career { display: none; }.growth-banner { flex-wrap: wrap; }.growth-banner .btn { margin-left: 54px; }.next-course { grid-template-columns: 70px 1fr; gap: 12px; } }
+@media (max-width: 720px) { .sidebar { display: none; }.workspace-header { margin: 0; height: 80px; padding: 14px 16px; gap: 12px; }.global-search { flex: 1; width: auto; padding: 11px; }.global-search input { font-size: 11px; }.global-search > span { display: none; }.header-profile { max-width: 42%; }.header-profile .picker-btn > svg:first-child, .header-profile .picker-btn .label { display: none; }.header-profile .picker-btn .value { font-size: 11px; }.header-profile .picker-btn { gap: 5px; }.header-profile .picker-btn > svg { flex-shrink: 0; }main { margin: 0; padding: 0 16px 95px; }.city-hero { margin: -80px -16px 0; padding: 113px 22px 35px; min-height: 560px; }.city-hero::before { background-position: 58% center; }.city-hero::after { background: linear-gradient(0deg, var(--bg), transparent 30%), linear-gradient(90deg, #f8fafcf0, #fff9eea8 55%, #ffffff22); }.hero-copy h1 { font-size: clamp(38px, 9vw, 58px); letter-spacing: -2px; }.hero-headline { font-size: 20px; }.city-stats { gap: 18px; margin: 24px 0; }.city-stats > div { gap: 7px; }.city-stats > div > svg { width: 23px; }.city-stats b { font-size: 21px; }.city-stats small { font-size: 9px; }.hero-progress { top: auto; bottom: 23px; right: 20px; width: 200px; padding: 13px; }.hero-progress h2 { font-size: 13px; margin-bottom: 8px; }.progress-content .ring { --ring-size: 80px; }.ring-value { font-size: 19px; }.progress-content strong { font-size: 16px; }.pin-skills { bottom: 62px; left: 22px; right: auto; font-size: 10px; padding: 8px; }.overview-grid { grid-template-columns: 1fr; }.overview-grid > .achievements-card { grid-column: auto; }.achievements-card .achievement-row { display: flex; width: 100%; padding: 12px 0; border-bottom: 1px solid var(--border); }.achievements-card .achievement-row:last-child { border-bottom: 0; }.overview-grid > .card { min-height: 0; padding: 20px; }.next-course { grid-template-columns: 100px 1fr; }.course-art { min-height: 150px; }.growth-banner { padding: 22px; gap: 16px; }.growth-banner p { font-size: 12px; }.growth-banner .btn { margin-left: 0; width: 100%; justify-content: space-between; }.city-dashboard { gap: 16px; }.eyebrow { font-size: 9px; letter-spacing: 2px; }.bottom-nav { z-index: 40; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+.mobile-settings { display: none; }
+.search-summary { display: flex; gap: 12px; align-items: center; padding: 14px 20px; border-radius: 12px; background: var(--primary-soft); color: var(--primary); font-size: 13px; }
+.search-summary .text-button { margin-left: auto; }
+@media (max-width: 720px) {
+  .mobile-settings { display: flex; align-items: center; gap: 8px; padding: 10px 16px; position: relative; z-index: 12; background: var(--surface); }
+  .mobile-brand { flex: 1; font-size: 20px; font-weight: 750; color: var(--primary); }
+  .workspace-header { background: var(--surface); }
+  .city-hero { margin-top: 0; padding-top: 35px; min-height: 485px; }
+}
+
+/* Keep dashboard content in flow so translations and narrow screens cannot overlap. */
+.city-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(245px, 285px);
+  align-items: start;
+  gap: 28px;
+}
+.hero-copy { min-width: 0; }
+.hero-progress {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  min-width: 0;
+  padding: 20px;
+  background: var(--surface);
+}
+.hero-progress h2 { align-items: center; gap: 12px; line-height: 1.35; }
+.hero-progress h2 svg { flex-shrink: 0; }
+.progress-content { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; }
+.progress-content > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+.progress-content .ring { --ring-size: 96px; }
+.progress-content .ring-value { font-size: 25px; line-height: 1; }
+.progress-content strong { font-size: 20px; line-height: 1.3; }
+.progress-content small, .progress-content span { line-height: 1.5; }
+.overview-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) minmax(0, 1.05fr); }
+.next-course { grid-template-columns: 95px minmax(0, 1fr); }
+.next-course h3, .recommendation-row strong, .achievement-row strong { overflow-wrap: anywhere; }
+.city-stats { flex-wrap: wrap; row-gap: 12px; }
+@media (max-width: 1450px) {
+  .city-level { display: none; }
+  .hero-copy h1 { font-size: clamp(36px, 4.2vw, 60px); }
+}
+@media (max-width: 1250px) {
+  .city-hero { grid-template-columns: minmax(0, 1fr) 245px; gap: 20px; padding-right: 28px; }
+  .hero-progress { padding: 18px; }
+  .progress-content { gap: 12px; }
+  .progress-content .ring { --ring-size: 84px; }
+  .progress-content .ring-value { font-size: 23px; }
+  .overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1050px) {
+  .city-hero { grid-template-columns: minmax(0, 1fr); padding-bottom: 30px; }
+  .hero-copy { max-width: 100%; }
+  .hero-progress { width: min(100%, 340px); margin-top: 8px; }
+  .progress-content .ring { --ring-size: 96px; }
+  .pin-skills { bottom: 70px; right: 24px; left: auto; }
+  .pin-career { display: none; }
+}
+@media (max-width: 720px) {
+  .city-hero { gap: 20px; padding: 32px 22px; min-height: 0; }
+  .hero-progress { width: 100%; margin: 0; padding: 20px; }
+  .hero-progress h2 { font-size: 16px; margin-bottom: 16px; }
+  .progress-content { gap: 20px; }
+  .progress-content .ring { --ring-size: 104px; }
+  .progress-content .ring-value { font-size: 27px; }
+  .progress-content small, .progress-content span { font-size: 12px; }
+  .hero-copy h1 { font-size: clamp(34px, 9vw, 58px); }
+  .city-pin { position: static; justify-self: start; }
+  .overview-grid { grid-template-columns: minmax(0, 1fr); }
+  .overview-grid .card-title { flex-wrap: wrap; }
+}
+/* Dedicated workspace pages */
+.page-main { padding-top: 24px; }
+.section-page { max-width: 1400px; margin: 0 auto; }
+.section-page .page-head { margin-bottom: 28px; }
+.section-page .page-head h1 { margin-top: 8px; font-size: 30px; }
+.section-page .page-head p { line-height: 1.7; }
+.quest-page-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.quest-page-grid .quest + .quest { margin-top: 0; }
+.learning-row { display: flex; align-items: center; gap: 24px; padding: 20px 0; border-top: 1px solid var(--border); }
+.learning-row > div { flex: 1; min-width: 0; }
+.learning-row h3 { margin: 0 0 12px; font-size: 16px; }
+.learning-row progress { width: min(80%, 400px); height: 10px; accent-color: var(--primary); margin-right: 12px; }
+.learning-row span { font-size: 13px; color: var(--text-2); }
+.achievement-summary { display: flex; gap: 24px; align-items: center; }
+.achievement-summary > svg { color: var(--accent); }
+.achievement-summary strong { font-size: 32px; }.achievement-summary p { margin: 0; color: var(--text-2); }.achievement-summary .ring { margin-left: auto; }
+.city-overview { display: flex; justify-content: space-between; align-items: center; gap: 24px; background: linear-gradient(90deg, var(--surface) 30%, color-mix(in srgb, var(--surface) 85%, transparent)), url('/images/city-panorama.png') center / cover; }
+.city-node-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }.city-node svg { color: var(--primary); }.city-node h3 { font-size: 16px; }.city-node span { font-size: 12px; color: var(--text-2); }.city-node.locked { opacity: .65; }
+.home-main .city-hero { min-height: 390px; padding-top: 118px; padding-bottom: 30px; }
+.home-main .hero-copy h1 { margin-top: 10px; }
+.home-main .city-stats { margin: 20px 0; }
+@media (max-width: 1100px) { .quest-page-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) {
+  .bottom-nav { display: flex; overflow-x: auto; justify-content: flex-start; }
+  .bottom-nav button { flex: 0 0 86px; font-size: 10px; }
+  .page-main { padding-top: 20px; }
+  .home-main .city-hero { padding-top: 28px; min-height: 0; }
+  .city-node-grid { grid-template-columns: minmax(0, 1fr); }
+  .learning-row { align-items: stretch; flex-direction: column; gap: 14px; }
+  .learning-row .btn { justify-content: center; }
+  .section-page .card-title { flex-wrap: wrap; }
+  .city-overview { flex-wrap: wrap; }
+}
+
+/* Original Halyk Bank wordmark, with its natural aspect ratio. */
+.halyk-logo { display: block; width: 100%; height: auto; object-fit: contain; }
+.halyk-brand { padding: 0 12px; }
+.mobile-brand { display: flex; align-items: center; min-width: 0; }
+.mobile-brand .halyk-logo { width: 112px; max-width: 100%; }
+:root[data-theme='dark'] .halyk-brand,
+:root[data-theme='dark'] .mobile-brand .halyk-logo { background: #fff; border-radius: 8px; padding: 8px; }

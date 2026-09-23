@@ -1,6 +1,3 @@
-// Справочники (названия навыков, требования ролей, мероприятия) берём прямо из датасета кейса.
-import skillsData from '../../case_1/career_quest_dataset/skills.json'
-import eventsData from '../../case_1/career_quest_dataset/events.json'
 import type { Grade } from './api'
 
 export const GRADES: Grade[] = ['Junior', 'Middle', 'Senior', 'Lead']
@@ -30,12 +27,22 @@ export interface EventDef {
   upcoming_sessions: string[]
 }
 
-const skills = skillsData.skills as unknown as SkillDef[]
-const roleProfiles = skillsData.role_profiles as unknown as RoleProfile[]
-const events = eventsData.events as unknown as EventDef[]
+export interface Catalog {
+  skills: SkillDef[]
+  role_profiles: RoleProfile[]
+  events: EventDef[]
+}
+let roleProfiles: RoleProfile[] = []
+const skillById = new Map<string, SkillDef>()
+const eventById = new Map<string, EventDef>()
 
-const skillById = new Map(skills.map((s) => [s.skill_id, s]))
-const eventById = new Map(events.map((e) => [e.event_id, e]))
+export function setCatalog(data: Catalog) {
+  roleProfiles = data.role_profiles
+  skillById.clear()
+  eventById.clear()
+  data.skills.forEach((s) => skillById.set(s.skill_id, s))
+  data.events.forEach((e) => eventById.set(e.event_id, e))
+}
 
 export const skillName = (id: string) => skillById.get(id)?.name ?? id.replace(/^SK_/, '').replace(/_/g, ' ')
 export const skillType = (id: string) => skillById.get(id)?.type ?? 'hard'
@@ -46,4 +53,3 @@ export function roleProfile(role: string, grade: string): RoleProfile | undefine
   return roleProfiles.find((p) => p.role === role && p.grade === grade)
 }
 
-export const proficiency = skillsData.proficiency_scale as Record<string, string>

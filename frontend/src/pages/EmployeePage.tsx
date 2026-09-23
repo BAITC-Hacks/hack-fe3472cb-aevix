@@ -1,25 +1,24 @@
+import type { Page } from '../routes'
+import { EmployeeSection } from './EmployeeSection'
 import { useCallback, useEffect, useState } from 'react'
-import { api, type EmployeeProfile, type RecommendationsResponse, type TrajectoryItem } from '../api'
-import { CareerMap } from '../components/CareerMap'
+import { api, type EmployeeProfile, type RecommendationsResponse, type GameMap, type TrajectoryItem } from '../api'
 import { cityCopy } from '../cityCopy'
 import { eventTitle } from '../catalog'
-import { History } from '../components/History'
 import { Icon } from '../components/Icon'
 import { ProgressRing } from '../components/ProgressRing'
-import { QuestCard } from '../components/QuestCard'
-import { SkillGap } from '../components/SkillGap'
 import { useI18n } from '../i18n'
 
 interface Data {
   profile: EmployeeProfile
   recs: RecommendationsResponse
   history: TrajectoryItem[]
+  map: GameMap
 }
 
-export function EmployeePage({ employeeId, onToast, query }: { employeeId: string; onToast: (msg: string) => void; query: string }) {
+export function EmployeePage({ employeeId, onToast, query, page, navigate }: { employeeId: string; onToast: (msg: string) => void; query: string; page: Exclude<Page, 'hr'>; navigate: (page: Page) => void }) {
   const { t, lang } = useI18n()
   const c = cityCopy[lang]
-  const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const jump = (id: string) => navigate(id.startsWith('quest-') ? 'recommendations' : id as Page)
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -27,12 +26,13 @@ export function EmployeePage({ employeeId, onToast, query }: { employeeId: strin
   const load = useCallback(async () => {
     setError(null)
     try {
-      const [profile, recs, history] = await Promise.all([
+      const [profile, recs, history, map] = await Promise.all([
         api.profile(employeeId),
         api.recommendations(employeeId),
         api.trajectory(employeeId),
+        api.map(employeeId),
       ])
-      setData({ profile, recs, history })
+      setData({ profile, recs, history, map })
     } catch (e) {
       setError((e as Error).message)
     }
@@ -82,13 +82,15 @@ export function EmployeePage({ employeeId, onToast, query }: { employeeId: strin
       </div>
     )
 
-  const { profile: p, recs, history } = data
+  const { profile: p, recs, history, map } = data
   const progress = recs.progress_to_next_grade ?? p.progress_to_next_grade
 
   const completed = history.filter((item) => item.status === 'completed')
   const recent = [...completed].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3)
   const first = recs.recommendations[0]
   const filtered = recs.recommendations.filter((q) => `${q.quest_title} ${q.reason} ${q.affected_skills.map((s) => s.skill_name).join(' ')}`.toLowerCase().includes(query.toLowerCase().trim()))
+
+  if (page !== 'home') return <EmployeeSection page={page} profile={p} recs={recs} history={history} map={map} query={query} busy={busy !== null} onComplete={complete} navigate={navigate} />
 
   return (
     <div className="city-dashboard" id="home">
@@ -114,6 +116,7 @@ export function EmployeePage({ employeeId, onToast, query }: { employeeId: strin
         <button className="city-pin pin-career" onClick={() => jump('city')}><Icon name="city" />{c.how}<Icon name="arrow" size={13} /></button>
       </section>
 
+      {query.trim() && <div className="search-summary" role="status"><Icon name="search" /><span>{filtered.length ? `${c.recommendations}: ${filtered.length}` : c.noResults}</span><button className="text-button" onClick={() => jump('recommendations')}>{c.all}<Icon name="arrow" /></button></div>}
       <div className="overview-grid">
         <section className="card next-card">
           <h2 className="card-title">{c.current}<button className="text-button" onClick={() => jump('learning')}><Icon name="arrow" /></button></h2>
@@ -129,15 +132,6 @@ export function EmployeePage({ employeeId, onToast, query }: { employeeId: strin
           {recent.map((item, i) => <div className="achievement-row" key={item.record_id}><span className={`medal medal-${i}`}><Icon name={i === 0 ? 'shield' : 'trophy'} size={24} /></span><div><small>{t('status_completed')}</small><strong>{eventTitle(item.event_id)}</strong></div><time>{new Date(item.date).toLocaleDateString(lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-GB' : 'ru-RU', { day: 'numeric', month: 'short' })}</time></div>)}
           {!recent.length && <p className="hero-sub">{c.empty}</p>}
         </section>
-      </div>
-      <section className="growth-banner"><Icon name="trophy" size={35} /><p>{c.banner}<span>{c.support}</span></p><button className="btn" onClick={() => jump('recommendations')}>{c.explore}<Icon name="arrow" /></button><span className="banner-brand">✦ Halyk</span></section>
-      <section id="city" className="city-map-section"><CareerMap role={p.role} grade={p.grade} targetRole={recs.target_role} targetGrade={recs.target_grade} progress={progress} /></section>
-      <div className="grid grid-main" id="learning">
-        <section className="card" id="recommendations">
-          <h2 className="card-title">{t('next_quests')}<small>{filtered.length}</small></h2>
-          {filtered.length === 0 ? <div className="state">{query.trim() ? c.noResults : t('no_recs')}</div> : filtered.map((q, i) => <div id={`quest-${q.event_id}`} className="quest-anchor" key={q.event_id}><QuestCard index={i} quest={q} busy={busy !== null} onComplete={() => complete(q.event_id)} /></div>)}
-        </section>
-        <div className="stack"><div id="skills"><SkillGap skills={p.skills} targetRole={recs.target_role} targetGrade={recs.target_grade} /></div><div id="achievements"><History items={history} /></div></div>
       </div>
     </div>
   )
