@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./career_quest.db"
     openai_api_key: str | None = None
     openai_model: str = "gpt-6-astra"
+    openai_timeout_seconds: float = 45
     hr_username: str = "hr"
     hr_password_hash: str | None = None
     hr_session_hours: int = 8

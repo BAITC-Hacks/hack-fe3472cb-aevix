@@ -122,7 +122,7 @@ def explain_recommendations(context: dict[str, Any], candidates: list[dict[str, 
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             method="POST",
         )
-        with request.urlopen(http_request, timeout=12) as response:
+        with request.urlopen(http_request, timeout=settings.openai_timeout_seconds) as response:
             raw = json.loads(response.read().decode("utf-8"))
         parsed = _response_payload(raw)
         return _validated_explanations(parsed, candidates) or fallback
@@ -253,7 +253,7 @@ def generate_quest_steps(event: dict[str, Any], employee: dict[str, Any], langua
             headers={"Authorization": f"Bearer {settings.openai_api_key}", "Content-Type": "application/json"},
             method="POST",
         )
-        with request.urlopen(http_request, timeout=12) as response:
+        with request.urlopen(http_request, timeout=settings.openai_timeout_seconds) as response:
             raw = json.loads(response.read().decode("utf-8"))
         steps = _validated_quest_steps(_response_payload(raw))
         if steps is None:

@@ -8,6 +8,17 @@
 
 Career City — только visualization/gamification layer поверх уже рассчитанных рекомендаций. Growth Coins — необязательная мотивационная фича, а ESG/Impact tags — визуальный слой. Ни один из этих слоёв не влияет на recommendation score.
 
+## Доступы для демо
+
+Адрес: **http://localhost:5173/** (общий экран входа для HR и сотрудников).
+
+| Роль | Логин | Пароль |
+|---|---|---|
+| HR | `hr` | `QQE5Ln5QncFCEOXmUgMpXWnlGyojp0Qi` |
+| Сотрудник (Arman Zhaksylykov, Backend Engineer, Middle) | `E0002` | `MWS7-LMSEy2H80FHiFoT6XfQ4q6AT1p-` |
+
+Пароли действуют для текущей локальной базы. Если пересоздать доступы (`python -m app.setup_hr --rotate`, `python -m app.setup_employees --rotate`), обновите эту таблицу. Пароли остальных сотрудников лежат в `.local/employee-access.csv` (в Git не попадает).
+
 ## 2. Архитектура
 
 Проект построен по модульной архитектуре FastAPI:
