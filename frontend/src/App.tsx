@@ -64,6 +64,7 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#171b20' : '#f5f7f6')
   }, [theme])
 
   useEffect(() => {
@@ -110,7 +111,6 @@ export default function App() {
           ))}
           <button aria-current={page === 'hr' ? 'page' : undefined} className={page === 'hr' ? 'active' : ''} onClick={() => navigate('hr')}><Icon name="chart" size={21} />{t('nav_hr')}</button>
         </nav>
-        <div className="sidebar-partner"><span>{c.partner}</span><img src="/images/halyk-bank-logo.png" alt="Halyk Bank" /></div>
         <div className="sidebar-settings">
           <div className="lang" role="group" aria-label="Language">
             {(['kk', 'ru', 'en'] as Lang[]).map((l) => <button key={l} className={lang === l ? 'active' : ''} aria-pressed={lang === l} onClick={() => setLang(l)}>{l === 'kk' ? 'KZ' : l}</button>)}
