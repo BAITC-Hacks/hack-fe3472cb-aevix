@@ -84,6 +84,15 @@ export interface RecommendationsResponse {
   recommendations: Recommendation[]
 }
 
+export interface CityProgress {
+  level: number
+  max_level: number
+  completed_courses: number
+  courses_per_level: number
+  courses_to_next_level: number
+  progress_to_next_level: number
+}
+
 export interface GameMap {
   employee_id: string
   current_zone: string
@@ -93,7 +102,9 @@ export interface GameMap {
   nodes: { id: string; title: string; status: 'completed' | 'active' | 'locked' }[]
   recommended_quest_ids: string[]
   city_name?: string
-  center?: { name: string; level: number; wallet_balance: number; progress_to_next_grade: number }
+  city_level: number
+  city_progress: CityProgress
+  center?: { name: string; level: number; city_level: number; wallet_balance: number; progress_to_next_grade: number }
   districts?: { id: string; name: string; progress: number; status: string; related_skills: string[]; impact_tags: string[]; recommended_event_ids: string[] }[]
   completed_quest_ids?: string[]
   quest_board?: { event_id: string; title: string; source: string; score: number }[]
