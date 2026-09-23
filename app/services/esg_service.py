@@ -21,9 +21,10 @@ DEFAULT_GOALS = [
 def ensure_goals() -> None:
     db = SessionLocal()
     try:
-        for goal_id, title, category, target in DEFAULT_GOALS:
-            if db.get(ESGGoal, goal_id) is None:
-                db.add(ESGGoal(goal_id=goal_id, title=title, category=category, target_coins=target, status="pending_hr_review"))
+        with db.no_autoflush:
+            for goal_id, title, category, target in DEFAULT_GOALS:
+                if db.get(ESGGoal, goal_id) is None:
+                    db.add(ESGGoal(goal_id=goal_id, title=title, category=category, target_coins=target, status="pending_hr_review"))
         try:
             db.commit()
         except IntegrityError:

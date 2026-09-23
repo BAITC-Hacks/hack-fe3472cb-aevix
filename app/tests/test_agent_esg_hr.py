@@ -10,8 +10,8 @@ from sqlalchemy import event
 
 from app.db import database
 from app.db.database import SessionLocal
-from app.db.models import ActivityHistory, CoinTransaction, Employee, ESGContribution, RoleProfile, Skill, Wallet
-from app.routers import esg_router, wallet_router
+from app.db.models import ActivityHistory, CoinTransaction, Employee, ESGContribution, ESGGoal, RoleProfile, Skill, Wallet
+from app.routers import esg_router, hr_router, wallet_router
 from app.services import esg_service, hr_service, llm_service
 
 
@@ -20,6 +20,7 @@ def api_request(method, path, payload=None):
     app = FastAPI()
     app.include_router(esg_router.router, prefix="/esg")
     app.include_router(wallet_router.router, prefix="/wallet")
+    app.include_router(hr_router.router, prefix="/hr")
     messages = []
 
     async def receive():
@@ -72,6 +73,95 @@ def test_esg_and_wallet_validate_employee_and_expose_goal_target():
     assert result["contributors_count"] == 1
     with SessionLocal() as db:
         assert db.query(CoinTransaction).one().amount == -40
+
+
+def test_wallet_for_new_employee_returns_zero_balance_and_no_transactions():
+    status, wallet = api_request("GET", "/wallet/E0002")
+    assert status == 200
+    assert wallet == {"employee_id": "E0002", "balance": 0, "transactions": []}
+
+
+def test_wallet_after_donation_matches_goal_and_hr_totals():
+    with SessionLocal() as db:
+        db.add_all([Wallet(employee_id="E0001", balance=100), Wallet(employee_id="E0002", balance=100)])
+        db.commit()
+    for employee_id, goal, coins in [
+        ("E0002", "ESG_GREEN_OFFICE", 40),
+        ("E0002", "ESG_GREEN_OFFICE", 10),
+        ("E0001", "ESG_GREEN_OFFICE", 20),
+        ("E0001", "ESG_SOCIAL_MENTORING", 30),
+    ]:
+        assert api_request("POST", f"/esg/{goal}/contribute", {"employee_id": employee_id, "coins": coins})[0] == 200
+    status, wallet = api_request("GET", "/wallet/E0002")
+    assert status == 200
+    assert wallet["balance"] == 50
+    assert sum(row["amount"] for row in wallet["transactions"]) == -50
+    assert all(row["transaction_id"] and row["created_at"] and row["event_id"] is None for row in wallet["transactions"])
+    status, goals = api_request("GET", "/esg")
+    assert status == 200
+    green = next(goal for goal in goals if goal["goal_id"] == "ESG_GREEN_OFFICE")
+    assert green["contributors_count"] == 2
+    assert green["total_contributed_coins"] == 70
+    assert green["target_coins"] == 1000
+    status, engagement = api_request("GET", "/hr/esg-engagement")
+    assert status == 200
+    assert engagement["contributors_count"] == 2
+    assert engagement["total_contributed_coins"] == 100
+    assert engagement["by_category"] == {"Environment": 70, "Social": 30}
+    assert engagement["goals"] == goals
+
+
+@pytest.mark.parametrize("employee_id,goal_id,coins,expected", [
+    ("E0002", "ESG_GREEN_OFFICE", 101, 409),
+    ("E0001", "ESG_GREEN_OFFICE", 1, 409),
+    ("E0002", "MISSING_GOAL", 20, 404),
+    ("MISSING_EMPLOYEE", "ESG_GREEN_OFFICE", 20, 404),
+])
+def test_failed_donation_preserves_wallet_and_ledger(employee_id, goal_id, coins, expected):
+    with SessionLocal() as db:
+        db.add(Wallet(employee_id="E0002", balance=100))
+        db.commit()
+    assert api_request("POST", f"/esg/{goal_id}/contribute", {"employee_id": employee_id, "coins": coins})[0] == expected
+    with SessionLocal() as db:
+        assert db.get(Wallet, "E0002").balance == 100
+        assert db.query(ESGContribution).count() == 0
+        assert db.query(CoinTransaction).count() == 0
+
+
+def test_concurrent_initial_goal_requests_are_idempotent():
+    barrier = Barrier(2)
+
+    def get_goals():
+        barrier.wait(timeout=5)
+        return esg_service.list_goals()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(get_goals) for _ in range(2)]
+        responses = [future.result(timeout=10) for future in futures]
+    assert responses[0] == responses[1]
+    assert len(responses[0]) == len(esg_service.DEFAULT_GOALS)
+    with SessionLocal() as db:
+        assert db.query(ESGGoal).count() == len(esg_service.DEFAULT_GOALS)
+
+
+@pytest.mark.parametrize("path", ["dashboard", "skill-gaps", "inactive-employees", "events-effectiveness"])
+def test_hr_routes_preserve_frontend_contract_and_new_aggregate_fields(path):
+    status, result = api_request("GET", f"/hr/{path}")
+    assert status == 200
+    with SessionLocal() as db:
+        activity = db.query(ActivityHistory).all()
+        expected = round(sum(row.status == "completed" for row in activity) / len(activity), 2) if activity else 0.0
+        assert result["total_employees"] == db.query(Employee).count()
+    assert result["events_completion_rate"] == expected
+    assert set(result) == {
+        "total_employees", "average_progress_to_next_grade", "top_skill_gaps", "inactive_employees_count",
+        "events_completion_rate", "popular_events", "risky_segments", "employees_without_recommendations",
+        "participation_by_activity", "esg_engagement", "team_quest_activity",
+    }
+    assert result["esg_engagement"] == {"total_contributed_coins": 0, "contributors_count": 0}
+    assert result["team_quest_activity"] == {"teams_count": 0, "completed_team_quests": 0}
+    assert isinstance(result["employees_without_recommendations"], list)
+    assert all(0 <= result[field] <= 100 for field in ["average_progress_to_next_grade", "events_completion_rate"])
 
 
 def test_concurrent_esg_donations_cannot_overdraw_wallet():

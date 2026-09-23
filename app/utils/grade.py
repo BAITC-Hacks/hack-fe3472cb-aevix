@@ -18,16 +18,9 @@ def next_grade(grade: str | None) -> str | None:
 
 
 def get_role_target(employee: dict | None, default_role: str | None = None) -> tuple[str | None, str | None]:
-    if not employee:
-        return default_role, next_grade(default_role and next_grade(default_role))
-
+    employee = employee or {}
     goal = employee.get("career_goal") or {}
-    if goal and goal.get("target_role"):
-        target_role = goal["target_role"]
-        target_grade = goal.get("target_grade") or next_grade(employee.get("grade"))
-        return target_role, target_grade
-
-    role = employee.get("role") or default_role
+    role = goal.get("target_role") or employee.get("role") or default_role
     current_grade = employee.get("grade") or "Junior"
-    target_grade = next_grade(current_grade)
+    target_grade = goal.get("target_grade") or next_grade(current_grade)
     return role, target_grade

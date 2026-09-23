@@ -120,6 +120,8 @@ class Team(Base):
     max_members = Column(Integer, nullable=False, default=5)
     status = Column(String, nullable=False, default="active")
     completed_team_quests = Column(Integer, nullable=False, default=0)
+    current_event_id = Column(String, ForeignKey("events.event_id"), nullable=True)
+    quest_started_at = Column(Date, nullable=True)
 
 
 class TeamMember(Base):

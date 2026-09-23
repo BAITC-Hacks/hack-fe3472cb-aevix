@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from app.services.esg_service import contribute, engagement, list_goals
+from app.services.esg_service import contribute, list_goals
 
 router = APIRouter()
 
@@ -21,4 +21,3 @@ def goals() -> list[dict[str, Any]]:
 @router.post("/{goal_id}/contribute")
 def contribute_to_goal(goal_id: str, payload: ContributionRequest) -> dict[str, Any]:
     return contribute(goal_id, payload.employee_id, payload.coins)
-
