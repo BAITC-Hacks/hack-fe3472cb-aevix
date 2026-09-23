@@ -21,7 +21,7 @@ services:
 
   frontend:
     build:
-      context: ../career-quest-frontend
+      context: ./frontend
       dockerfile: Dockerfile
       args:
         VITE_API_URL: http://localhost:8000
