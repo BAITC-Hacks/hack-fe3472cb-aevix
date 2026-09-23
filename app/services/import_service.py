@@ -110,6 +110,10 @@ def import_employees(file_path: str | Path, db: Session | None = None) -> int:
 
 
 def register_employee(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        payload = EmployeeBase.model_validate(payload).model_dump()
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail="Invalid employee profile") from exc
     db: Session = SessionLocal()
     try:
         employee_id = payload.get("employee_id")

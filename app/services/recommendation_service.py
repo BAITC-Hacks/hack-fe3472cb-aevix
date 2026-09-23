@@ -333,8 +333,13 @@ def complete_quest(employee_id: str, event_id: str) -> dict[str, Any]:
 def _complete_quest(db: Session, employee_id: str, event_id: str) -> dict[str, Any]:
     employee, event, progress = _quest_records(db, employee_id, event_id)
     if _has_completed(db, employee_id, event_id, progress):
-        # A recurring club requires a newly selected participation to be rewarded.
-        if event_id not in RECURRING_EVENTS or progress is None or progress.status != "selected":
+        completed_today = db.query(ActivityHistory).filter_by(
+            employee_id=employee_id, event_id=event_id, status="completed", date=date.today(),
+        ).first()
+        # The recurring club supports later sessions while duplicate completion
+        # requests for today's participation remain conflicts.
+        fresh_selection = progress is not None and progress.status == "selected"
+        if event_id not in RECURRING_EVENTS or (completed_today and not fresh_selection):
             raise HTTPException(status_code=409, detail="Quest already completed")
 
     target_role, target_grade = get_role_target(employee.__dict__, employee.role)

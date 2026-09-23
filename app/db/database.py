@@ -23,6 +23,8 @@ def init_db() -> None:
     with engine.begin() as connection:
         if "current_event_id" not in columns:
             connection.execute(text("ALTER TABLE teams ADD COLUMN current_event_id VARCHAR REFERENCES events(event_id)"))
+            # The old backend did not persist which quest was started.
+            connection.execute(text("UPDATE teams SET status='active' WHERE status='in_progress'"))
         if "quest_started_at" not in columns:
             connection.execute(text("ALTER TABLE teams ADD COLUMN quest_started_at DATE"))
 

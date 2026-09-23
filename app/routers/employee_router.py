@@ -1,14 +1,13 @@
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
-from app.db.models import ActivityHistory, Employee
-from app.schemas.employee import EmployeeBase
+from app.db.models import Employee, Event, RoleProfile, Skill
+from app.schemas.employee import EmployeeBase, QuestSelection
 from app.services.import_service import register_employee
 from app.services.quest_service import select_quest
-from app.services.progress_service import compute_progress_to_next_grade
 from app.services.recommendation_service import complete_quest, get_employee_profile, get_employee_recommendations, get_employee_trajectory
 
 router = APIRouter()
@@ -34,6 +33,19 @@ def list_employees() -> list[dict[str, Any]]:
         } for row in rows]
     finally:
         db.close()
+
+
+@router.get("/catalog")
+def catalog() -> dict[str, Any]:
+    with SessionLocal() as db:
+        def serialize(row: Any) -> dict[str, Any]:
+            return {column.name: getattr(row, column.name) for column in row.__table__.columns}
+
+        return {
+            "skills": [serialize(row) for row in db.query(Skill).order_by(Skill.skill_id).all()],
+            "role_profiles": [serialize(row) for row in db.query(RoleProfile).order_by(RoleProfile.role, RoleProfile.grade).all()],
+            "events": [serialize(row) for row in db.query(Event).order_by(Event.event_id).all()],
+        }
 
 
 @router.get("/{employee_id}")
@@ -67,8 +79,13 @@ def employee_trajectory(employee_id: str) -> list[dict[str, Any]]:
 
 
 @router.get("/{employee_id}/recommendations")
-def employee_recommendations(employee_id: str) -> dict[str, Any]:
-    return get_employee_recommendations(employee_id)
+def employee_recommendations(
+    employee_id: str,
+    include_explanations: bool = False,
+    language: str = Query(default="ru", pattern="^(ru|kk|en)$"),
+    limit: int = Query(default=3, ge=1, le=100),
+) -> dict[str, Any]:
+    return get_employee_recommendations(employee_id, limit=limit, use_llm=include_explanations, language=language)
 
 
 @router.post("/{employee_id}/quests/{event_id}/complete")
@@ -77,5 +94,5 @@ def complete_employee_quest(employee_id: str, event_id: str) -> dict[str, Any]:
 
 
 @router.post("/{employee_id}/quests/{event_id}/select")
-def select_employee_quest(employee_id: str, event_id: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    return select_quest(employee_id, event_id, (payload or {}).get("mode", "solo"))
+def select_employee_quest(employee_id: str, event_id: str, payload: QuestSelection | None = None) -> dict[str, Any]:
+    return select_quest(employee_id, event_id, payload.mode if payload else "solo")

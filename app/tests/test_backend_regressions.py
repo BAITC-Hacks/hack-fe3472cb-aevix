@@ -5,14 +5,46 @@ from threading import Event as ThreadEvent
 
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
 from app.db.database import SessionLocal
 from app.db.models import ActivityHistory, CoinTransaction, Employee, Event, QuestProgress, Wallet
+from app.main import app
 from app.services import recommendation_service
 from app.services.game_service import get_game_map, get_game_progress
 from app.services.quest_service import select_quest
 from app.services.recommendation_service import complete_quest, get_employee_profile, get_employee_recommendations
 from app.services.team_service import complete_team_quest, create_team, get_team, join_team, start_team_quest
+
+
+def test_recommendation_http_explanations_are_opt_in_and_validate_queries(monkeypatch):
+    calls = []
+
+    def explain(context, candidates):
+        calls.append(context["language"])
+        return {"provider": "template", "summary": "HTTP test", "recommendation_explanations": []}
+
+    monkeypatch.setattr(recommendation_service, "explain_recommendations", explain)
+    with TestClient(app) as client:
+        for route in ("/api/employees/E0002/recommendations", "/api/recommendations/E0002"):
+            assert client.get(route).status_code == 200
+            assert calls == []
+            response = client.get(route, params={"include_explanations": "true", "language": "kk", "limit": 1})
+            assert response.status_code == 200
+            assert len(response.json()["recommendations"]) == 1
+            assert calls.pop() == "kk"
+            for params in ({"language": "invalid"}, {"limit": 0}, {"include_explanations": "invalid"}):
+                assert client.get(route, params=params).status_code == 422
+
+
+def test_employee_registration_rejects_invalid_fields():
+    with TestClient(app) as client:
+        for payload in ({}, {"employee_id": " ", "full_name": "Name"},
+                        {"employee_id": "INVALID", "full_name": " "},
+                        {"employee_id": "INVALID", "full_name": "Name", "skills": {"SK_PYTHON": -1}}):
+            assert client.post("/api/employees/register", json=payload).status_code == 422
+    with SessionLocal() as db:
+        assert db.get(Employee, "INVALID") is None
 
 
 def test_select_then_complete_persists_one_learning_entry_and_one_reward():

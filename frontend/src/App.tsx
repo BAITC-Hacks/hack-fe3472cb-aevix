@@ -102,6 +102,7 @@ export default function App() {
         <nav className="side-nav" aria-label={c.navigation}>
           {([
             ['home', 'home', c.home], ['learning', 'book', c.learning], ['city', 'city', c.city],
+            ['collaboration', 'people', c.collaboration],
             ['recommendations', 'spark', c.recommendations], ['skills', 'shield', c.skills],
             ['achievements', 'trophy', c.achievements],
           ] as const).map(([id, icon, label]) => (
@@ -136,7 +137,7 @@ export default function App() {
       </main>
       <nav className="bottom-nav" aria-label={c.navigation}>
         {([['home', 'home', c.home], ['learning', 'book', c.learning], ['city', 'city', c.city]] as const).map(([id, icon, label]) => <button key={id} aria-current={page === id ? 'page' : undefined} className={page === id ? 'active' : ''} onClick={() => navigate(id)}><Icon name={icon} size={20} />{label}</button>)}
-        <label className={`mobile-menu ${!['home', 'learning', 'city'].includes(page) ? 'active' : ''}`}><Icon name="route" size={20} /><span>{c.more}</span><select aria-label={c.navigation} value={page} onChange={(e) => navigate(e.target.value as Page)}>{(['home', 'learning', 'city', 'recommendations', 'skills', 'achievements', 'hr'] as Page[]).map((id) => <option key={id} value={id}>{id === 'hr' ? t('nav_hr') : c[id]}</option>)}</select></label>
+        <label className={`mobile-menu ${!['home', 'learning', 'city'].includes(page) ? 'active' : ''}`}><Icon name="route" size={20} /><span>{c.more}</span><select aria-label={c.navigation} value={page} onChange={(e) => navigate(e.target.value as Page)}>{(['home', 'learning', 'collaboration', 'city', 'recommendations', 'skills', 'achievements', 'hr'] as Page[]).map((id) => <option key={id} value={id}>{id === 'hr' ? t('nav_hr') : c[id]}</option>)}</select></label>
       </nav>
 
       {toast && (

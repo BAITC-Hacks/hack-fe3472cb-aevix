@@ -4,6 +4,7 @@ import type { Page } from '../routes'
 import { cityCopy } from '../cityCopy'
 import { eventTitle } from '../catalog'
 import { CityPage } from './CityPage'
+import { CollaborationPage } from './CollaborationPage'
 import { CareerAssistant } from '../components/CareerAssistant'
 import { History } from '../components/History'
 import { Icon } from '../components/Icon'
@@ -40,7 +41,8 @@ export function EmployeeSection({ page, profile, recs, history, map, query, busy
   const completed = history.filter((item) => item.status === 'completed')
   const recommendations = recs.recommendations.filter((item) => `${item.quest_title} ${item.reason} ${item.affected_skills.map((s) => s.skill_name).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())).filter((item) => filter === 'short' ? item.duration_hours <= 4 : filter === 'critical' ? item.affected_skills.some((skill) => skill.is_critical) : true)
   return <div className="section-page">
-    <header className="page-head"><span className="eyebrow">CAREER CITY</span><h1>{c[page]}</h1><p>{page === 'city' ? c.cityNote : page === 'learning' ? c.learningNote : page === 'skills' ? c.skillsNote : page === 'recommendations' ? c.recommendationsNote : c.achievementsNote}</p></header>
+    <header className="page-head"><span className="eyebrow">CAREER CITY</span><h1>{c[page]}</h1><p>{page === 'collaboration' ? c.collaborationNote : page === 'city' ? c.cityNote : page === 'learning' ? c.learningNote : page === 'skills' ? c.skillsNote : page === 'recommendations' ? c.recommendationsNote : c.achievementsNote}</p></header>
+    {page === 'collaboration' && <CollaborationPage key={profile.employee_id} employeeId={profile.employee_id} onRefresh={onRefresh} />}
     {page === 'recommendations' && <>
       <CareerAssistant recs={recs} />
       <div className="recommendation-toolbar">

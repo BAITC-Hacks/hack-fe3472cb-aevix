@@ -1,5 +1,6 @@
 export const cityCopy = {
   ru: {
+    collaboration: 'Совместное обучение', collaborationNote: 'Объединяйтесь в команды и находите коллег для обучения.',
     greeting: 'С возвращением', overview: 'Ваше развитие — в одном месте', balance: 'Монеты', inProgress: 'Активное обучение', nextStep: 'Ваш следующий шаг', districts: 'Районы развития', cityNote: 'Учитесь, развивайте навыки и наблюдайте, как растёт ваш город.', noActive: 'Сейчас нет активного обучения', learningNote: 'Ваши курсы и история обучения.', skillsNote: 'Что уже получается и что нужно для следующего уровня.', recommendationsNote: 'Подобрано с учётом ваших навыков, цели и опыта.', achievementsNote: 'Ваши завершённые занятия и результаты обучения.', homeNote: 'Продолжайте обучение и двигайтесь к своей цели.', noDistrict: 'Пока нет подходящих рекомендаций для этого района.', openSkills: 'Посмотреть навыки', filters: 'Все рекомендации', reward: 'Награда', partner: 'При поддержке', more: 'Меню', close: 'Закрыть', clear: 'Очистить поиск',
     navigation: 'Навигация', home: 'Главная', learning: 'Моё обучение', city: 'Мой город', recommendations: 'Рекомендации', skills: 'Мои навыки', achievements: 'Достижения',
     quote: 'Развивайся сегодня — строй лучшее завтра', theme: 'Переключить тему', search: 'Поиск в рекомендациях…',
@@ -8,6 +9,7 @@ export const cityCopy = {
     banner: 'Карьерный рост — это путь, который ты строишь сам.', support: 'А мы рядом, чтобы поддержать.', explore: 'К моим рекомендациям', noResults: 'По вашему запросу ничего не найдено', level: 'УРОВЕНЬ', details: 'Подробнее',
   },
   kk: {
+    collaboration: 'Бірге оқу', collaborationNote: 'Команда құрып, бірге оқитын әріптестерді табыңыз.',
     greeting: 'Қайта оралуыңызбен', overview: 'Дамуыңыз — бір жерде', balance: 'Монеталар', inProgress: 'Оқу үстінде', nextStep: 'Келесі қадамыңыз', districts: 'Даму аудандары', cityNote: 'Оқып, дағдыларыңызды дамытыңыз — қалаңыз да өседі.', noActive: 'Қазір белсенді оқу жоқ', learningNote: 'Курстарыңыз және оқу тарихы.', skillsNote: 'Келесі деңгейге қажет дағдылар.', recommendationsNote: 'Дағдыларыңыз, мақсатыңыз және тәжірибеңізге сай.', achievementsNote: 'Аяқталған сабақтарыңыз және оқу нәтижелері.', homeNote: 'Оқуды жалғастырып, мақсатыңызға жақындаңыз.', noDistrict: 'Бұл ауданға сәйкес ұсыныстар әзірге жоқ.', openSkills: 'Дағдыларды көру', filters: 'Барлық ұсыныстар', reward: 'Марапат', partner: 'Қолдауымен', more: 'Мәзір', close: 'Жабу', clear: 'Іздеуді тазарту',
     navigation: 'Навигация', home: 'Басты бет', learning: 'Менің оқуым', city: 'Менің қалам', recommendations: 'Ұсыныстар', skills: 'Дағдыларым', achievements: 'Жетістіктер',
     quote: 'Бүгін дамы — ертеңгі күніңді жақсарт', theme: 'Тақырыпты ауыстыру', search: 'Ұсыныстардан іздеу…',
@@ -16,6 +18,7 @@ export const cityCopy = {
     banner: 'Мансаптық өсу — өзің салатын жол.', support: 'Ал біз қолдау көрсету үшін жаныңдамыз.', explore: 'Ұсыныстарыма өту', noResults: 'Сұрауыңыз бойынша ештеңе табылмады', level: 'ДЕҢГЕЙ', details: 'Толығырақ',
   },
   en: {
+    collaboration: 'Learn together', collaborationNote: 'Build a team and find colleagues to learn with.',
     greeting: 'Welcome back', overview: 'Your growth, all in one place', balance: 'Coins', inProgress: 'Active learning', nextStep: 'Your next step', districts: 'Growth districts', cityNote: 'Keep learning, develop your skills and watch your city grow.', noActive: 'No learning in progress yet', learningNote: 'Your courses and learning history.', skillsNote: 'Your strengths and the skills you need for your next level.', recommendationsNote: 'Selected for your skills, goals and experience.', achievementsNote: 'Your completed activities and learning results.', homeNote: 'Keep learning and move closer to your goal.', noDistrict: 'No recommendations for this district yet.', openSkills: 'Explore skills', filters: 'All recommendations', reward: 'Reward', partner: 'Supported by', more: 'Menu', close: 'Close', clear: 'Clear search',
     navigation: 'Navigation', home: 'Home', learning: 'My learning', city: 'My city', recommendations: 'Recommendations', skills: 'My skills', achievements: 'Achievements',
     quote: 'Grow today — build a better tomorrow', theme: 'Toggle theme', search: 'Search recommendations…',
