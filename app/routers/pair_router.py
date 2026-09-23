@@ -2,14 +2,15 @@ from typing import Any
 
 from fastapi import APIRouter
 
+from app.schemas.collaboration import PairInvitationCreate, PairInvitationResponse
 from app.services.pair_service import create_invitation, get_pair_space, list_invitations, preview_invitation, respond_to_invitation
 
 router = APIRouter()
 
 
 @router.post("/invitations")
-def publish_invitation(payload: dict[str, Any]) -> dict[str, Any]:
-    return create_invitation(payload)
+def publish_invitation(payload: PairInvitationCreate) -> dict[str, Any]:
+    return create_invitation(payload.model_dump())
 
 
 @router.get("/invitations")
@@ -18,8 +19,8 @@ def invitations(employee_id: str | None = None) -> list[dict[str, Any]]:
 
 
 @router.post("/invitations/{invitation_id}/respond")
-def respond(invitation_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    return respond_to_invitation(invitation_id, payload)
+def respond(invitation_id: str, payload: PairInvitationResponse) -> dict[str, Any]:
+    return respond_to_invitation(invitation_id, payload.model_dump())
 
 
 @router.get("/invitations/{invitation_id}/preview")

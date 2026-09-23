@@ -9,7 +9,7 @@ const statusChip: Record<string, string> = {
   dropped: 'danger',
   overdue: 'danger',
   no_show: 'danger',
-  declined: '',
+    declined: '',
 }
 
 function timestamp(date: string | null | undefined) {
@@ -26,13 +26,19 @@ export function History({ items }: { items: TrajectoryItem[] }) {
     kk: { noDate: 'Күні көрсетілмеген', score: 'Нәтиже', progress: 'Орындалған' },
     en: { noDate: 'No date recorded', score: 'Score', progress: 'Completed' },
   }[lang]
-  const sorted = [...items].sort((a, b) => timestamp(b.date) - timestamp(a.date))
+  // A quest projection describes the same attempt as its learning-history row.
+  // Keep genuine historical repetitions while avoiding duplicate projections.
+  const activity = items.filter((item) => item.source !== 'quest_progress')
+  const visible = items.filter((item) => item.source !== 'quest_progress' || !activity.some((row) => row.event_id === item.event_id && (
+    row.status === item.status || (['selected', 'in_progress'].includes(item.status) && ['selected', 'in_progress'].includes(row.status))
+  )))
+  const sorted = [...visible].sort((a, b) => timestamp(b.date) - timestamp(a.date))
 
   return (
     <div className="card history-card">
       <h2 className="card-title">
         {t('history')}
-        <small>{items.length}</small>
+        <small>{visible.length}</small>
       </h2>
       {sorted.length === 0 ? (
         <div className="state"><Icon name="book" size={26} />{t('empty_history')}</div>

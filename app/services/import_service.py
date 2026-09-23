@@ -1,22 +1,21 @@
+import csv
 import json
+from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-from fastapi import HTTPException, UploadFile
+from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.db.models import ActivityHistory, Employee, Event, RoleProfile, Skill
-
-
-def _safe_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
+from app.schemas.employee import EmployeeBase
+from app.schemas.event import EventBase
+from app.schemas.history import ActivityHistoryBase
+from app.schemas.skill import RoleProfileRead, SkillBase
 
 
 def _parse_date(value: Any) -> date | None:
@@ -24,85 +23,98 @@ def _parse_date(value: Any) -> date | None:
         return None
     if isinstance(value, date):
         return value
-    if isinstance(value, str):
+    try:
+        return date.fromisoformat(value)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="Invalid date; expected YYYY-MM-DD")
+
+
+@contextmanager
+def import_transaction(db: Session | None = None):
+    if db is not None:
+        yield db
+        return
+    with SessionLocal() as session:
+        with session.begin():
+            yield session
+
+
+def _json_load(path: Path) -> dict:
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"Dataset file not found: {path.name}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (UnicodeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Expected a valid UTF-8 JSON file") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=422, detail="Expected a JSON object containing dataset records")
+    return payload
+
+
+def _records(payload: dict, key: str, schema, required: tuple[str, ...]) -> list[dict]:
+    items = payload.get(key)
+    if not isinstance(items, list):
+        raise HTTPException(status_code=422, detail=f"{key} must be an array")
+    result, seen = [], set()
+    for index, item in enumerate(items):
+        if not isinstance(item, dict) or any(not isinstance(item.get(field), str) or not item[field].strip() for field in required):
+            raise HTTPException(status_code=422, detail=f"{key}[{index}]: required fields: {', '.join(required)}")
         try:
-            return date.fromisoformat(value)
-        except ValueError:
-            return None
-    return None
+            record = schema.model_validate(item).model_dump()
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail=f"{key}[{index}]: invalid field values") from exc
+        # Check the values that will be stored: schemas can normalize identifiers.
+        identity = tuple(record[field] for field in required[:2 if key == "role_profiles" else 1])
+        if identity in seen:
+            raise HTTPException(status_code=422, detail=f"{key}[{index}]: duplicate identifier")
+        seen.add(identity)
+        result.append(record)
+    return result
 
 
-def _json_load(path: Path) -> Any:
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+def _upsert(db: Session, model, identity, data: dict) -> None:
+    record = db.get(model, identity)
+    if record is None:
+        db.add(model(**data))
+    else:
+        for key, value in data.items():
+            setattr(record, key, value)
 
 
 def import_dataset_from_path(dataset_dir: str | None = None) -> dict[str, Any]:
     resolved_dir = Path(dataset_dir or settings.dataset_dir)
-    if not resolved_dir.exists():
-        raise HTTPException(status_code=404, detail=f"Dataset directory not found: {resolved_dir}")
-
-    employees_path = resolved_dir / "employees.json"
-    events_path = resolved_dir / "events.json"
-    skills_path = resolved_dir / "skills.json"
-    history_path = resolved_dir / "activity_history.csv"
-
-    results = {
-        "employees": import_employees(employees_path),
-        "events": import_events(events_path),
-        "skills": import_skills(skills_path),
-        "history": import_history(history_path),
-    }
-    return results
+    if not resolved_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Dataset directory not found")
+    with import_transaction() as db:
+        return {
+            "employees": import_employees(resolved_dir / "employees.json", db),
+            "events": import_events(resolved_dir / "events.json", db),
+            "skills": import_skills(resolved_dir / "skills.json", db),
+            "history": import_history(resolved_dir / "activity_history.csv", db),
+        }
 
 
 def seed_demo_data() -> dict[str, Any]:
-    db: Session = SessionLocal()
-    try:
-        has_data = db.query(Employee).first() is not None
-        if has_data:
+    with SessionLocal() as db:
+        if db.query(Employee).first() is not None:
             return {"status": "already_seeded", "employees": db.query(Employee).count()}
-        default_dataset = settings.dataset_path
-        return import_dataset_from_path(str(default_dataset))
-    finally:
-        db.close()
+    return import_dataset_from_path(str(settings.dataset_path))
 
 
-def import_employees(file_path: str | Path) -> int:
-    path = Path(file_path)
-    payload = _json_load(path)
-    employees = payload.get("employees", [])
-    db: Session = SessionLocal()
-    try:
+def import_employees(file_path: str | Path, db: Session | None = None) -> int:
+    employees = _records(_json_load(Path(file_path)), "employees", EmployeeBase, ("employee_id", "full_name"))
+    with import_transaction(db) as session:
         for item in employees:
-            record = db.get(Employee, item["employee_id"])
-            data = {
-                "employee_id": item["employee_id"],
-                "full_name": item.get("full_name"),
-                "department": item.get("department"),
-                "role": item.get("role"),
-                "grade": item.get("grade"),
-                "manager_id": item.get("manager_id"),
-                "hire_date": _parse_date(item.get("hire_date")),
-                "tenure_months": item.get("tenure_months"),
-                "work_format": item.get("work_format"),
-                "preferred_language": item.get("preferred_language"),
-                "career_goal": item.get("career_goal"),
-                "skills": item.get("skills", {}),
-                "last_review_date": _parse_date(item.get("last_review_date")),
-            }
-            if record is None:
-                db.add(Employee(**data))
-            else:
-                for key, value in data.items():
-                    setattr(record, key, value)
-        db.commit()
-        return len(employees)
-    finally:
-        db.close()
+            _upsert(session, Employee, item["employee_id"], item)
+        session.flush()
+    return len(employees)
 
 
 def register_employee(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        payload = EmployeeBase.model_validate(payload).model_dump()
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail="Invalid employee profile") from exc
     db: Session = SessionLocal()
     try:
         employee_id = payload.get("employee_id")
@@ -135,107 +147,57 @@ def register_employee(payload: dict[str, Any]) -> dict[str, Any]:
         db.close()
 
 
-def import_events(file_path: str | Path) -> int:
-    path = Path(file_path)
-    payload = _json_load(path)
-    events = payload.get("events", [])
-    db: Session = SessionLocal()
-    try:
+def import_events(file_path: str | Path, db: Session | None = None) -> int:
+    events = _records(_json_load(Path(file_path)), "events", EventBase, ("event_id", "title"))
+    with import_transaction(db) as session:
         for item in events:
-            record = db.get(Event, item["event_id"])
-            data = {
-                "event_id": item["event_id"],
-                "title": item.get("title"),
-                "description": item.get("description"),
-                "type": item.get("type"),
-                "format": item.get("format"),
-                "duration_hours": item.get("duration_hours"),
-                "mandatory": bool(item.get("mandatory", False)),
-                "target_roles": item.get("target_roles", []),
-                "target_grades": item.get("target_grades", []),
-                "develops_skills": item.get("develops_skills", []),
-                "prerequisites": item.get("prerequisites", {}),
-                "upcoming_sessions": item.get("upcoming_sessions", []),
-            }
-            if record is None:
-                db.add(Event(**data))
-            else:
-                for key, value in data.items():
-                    setattr(record, key, value)
-        db.commit()
-        return len(events)
-    finally:
-        db.close()
+            _upsert(session, Event, item["event_id"], item)
+        session.flush()
+    return len(events)
 
 
-def import_skills(file_path: str | Path) -> int:
-    path = Path(file_path)
-    payload = _json_load(path)
-    skills = payload.get("skills", [])
-    role_profiles = payload.get("role_profiles", [])
-    db: Session = SessionLocal()
-    try:
+def import_skills(file_path: str | Path, db: Session | None = None) -> int:
+    payload = _json_load(Path(file_path))
+    skills = _records(payload, "skills", SkillBase, ("skill_id", "name", "type"))
+    profiles = _records({"role_profiles": payload.get("role_profiles", [])}, "role_profiles", RoleProfileRead, ("role", "grade"))
+    with import_transaction(db) as session:
         for item in skills:
-            record = db.get(Skill, item["skill_id"])
-            data = {
-                "skill_id": item["skill_id"],
-                "name": item.get("name"),
-                "type": item.get("type"),
-                "category": item.get("category"),
-                "description": item.get("description"),
-            }
-            if record is None:
-                db.add(Skill(**data))
-            else:
-                for key, value in data.items():
-                    setattr(record, key, value)
-        for item in role_profiles:
-            profile = db.query(RoleProfile).filter_by(role=item["role"], grade=item["grade"]).first()
-            data = {
-                "role": item.get("role"),
-                "grade": item.get("grade"),
-                "required_skills": item.get("required_skills", {}),
-                "critical_skills": item.get("critical_skills", []),
-            }
+            _upsert(session, Skill, item["skill_id"], item)
+        for item in profiles:
+            item.pop("id", None)
+            profile = session.query(RoleProfile).filter_by(role=item["role"], grade=item["grade"]).first()
             if profile is None:
-                db.add(RoleProfile(**data))
+                session.add(RoleProfile(**item))
             else:
-                for key, value in data.items():
+                for key, value in item.items():
                     setattr(profile, key, value)
-        db.commit()
-        return len(skills) + len(role_profiles)
-    finally:
-        db.close()
+        session.flush()
+    return len(skills) + len(profiles)
 
 
-def import_history(file_path: str | Path) -> int:
+def import_history(file_path: str | Path, db: Session | None = None) -> int:
     path = Path(file_path)
-    df = pd.read_csv(path)
-    db: Session = SessionLocal()
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"Dataset file not found: {path.name}")
     try:
-        rows = 0
-        for row in df.to_dict(orient="records"):
-            record_id = str(row.get("record_id") or f"R_{rows}")
-            record = db.get(ActivityHistory, record_id)
-            data = {
-                "record_id": record_id,
-                "employee_id": row.get("employee_id"),
-                "event_id": row.get("event_id"),
-                "date": _parse_date(row.get("date")),
-                "due_date": _parse_date(row.get("due_date")),
-                "status": row.get("status"),
-                "completion_pct": _safe_int(row.get("completion_pct"), 0) if pd.notna(row.get("completion_pct")) else None,
-                "score": _safe_int(row.get("score"), 0) if pd.notna(row.get("score")) else None,
-                "feedback_rating": _safe_int(row.get("feedback_rating"), 0) if pd.notna(row.get("feedback_rating")) else None,
-                "assigned_by": row.get("assigned_by"),
-            }
-            if record is None:
-                db.add(ActivityHistory(**data))
-            else:
-                for key, value in data.items():
-                    setattr(record, key, value)
-            rows += 1
-        db.commit()
-        return rows
-    finally:
-        db.close()
+        with path.open(encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle, strict=True)
+            if not {"record_id", "employee_id", "event_id"}.issubset(reader.fieldnames or []):
+                raise HTTPException(status_code=422, detail="CSV requires record_id, employee_id and event_id columns")
+            rows = []
+            for row in reader:
+                if None in row:
+                    raise HTTPException(status_code=422, detail="CSV row contains too many columns")
+                rows.append({key: value if value != "" else None for key, value in row.items()})
+    except (UnicodeError, csv.Error) as exc:
+        raise HTTPException(status_code=422, detail="Expected a valid UTF-8 CSV file") from exc
+    history = _records({"history": rows}, "history", ActivityHistoryBase, ("record_id", "employee_id", "event_id"))
+    with import_transaction(db) as session:
+        employee_ids = {row[0] for row in session.query(Employee.employee_id).all()}
+        event_ids = {row[0] for row in session.query(Event.event_id).all()}
+        if any(item["employee_id"] not in employee_ids or item["event_id"] not in event_ids for item in history):
+            raise HTTPException(status_code=422, detail="History references unknown employees or events; import them first")
+        for item in history:
+            _upsert(session, ActivityHistory, item["record_id"], item)
+        session.flush()
+    return len(history)

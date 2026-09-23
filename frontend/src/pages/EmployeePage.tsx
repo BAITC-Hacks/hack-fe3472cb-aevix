@@ -24,9 +24,9 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   const busyRef = useRef(false)
   const loadVersion = useRef(0)
   const copy = {
-    ru: { selected: 'Занятие добавлено в ваше обучение', refresh: 'Не удалось обновить данные. Повторите загрузку.', failed: 'Не удалось сохранить изменение. Попробуйте ещё раз.', duplicate: 'Это занятие уже завершено.', prerequisites: 'Для этого занятия сначала нужно развить базовые навыки. Проверьте рекомендации.' },
-    kk: { selected: 'Сабақ оқуыңызға қосылды', refresh: 'Деректер жаңартылмады. Қайта жүктеп көріңіз.', failed: 'Өзгеріс сақталмады. Қайта көріңіз.', duplicate: 'Бұл сабақ аяқталған.', prerequisites: 'Бұл сабақ үшін алдымен негізгі дағдыларды дамыту қажет. Ұсыныстарды қараңыз.' },
-    en: { selected: 'Activity added to your learning', refresh: 'Could not refresh your data. Please try again.', failed: 'Could not save the change. Please try again.', duplicate: 'This activity was already completed.', prerequisites: 'Build the prerequisite skills before taking this activity. Check your recommendations.' },
+    ru: { selected: 'Занятие добавлено в ваше обучение', refresh: 'Не удалось обновить данные. Повторите загрузку.', failed: 'Не удалось сохранить изменение. Попробуйте ещё раз.', duplicate: 'Это занятие уже завершено.', steps: 'Сначала выполните все шаги квеста в разделе «Моё обучение».', prerequisites: 'Для этого занятия сначала нужно развить базовые навыки. Проверьте рекомендации.' },
+    kk: { selected: 'Сабақ оқуыңызға қосылды', refresh: 'Деректер жаңартылмады. Қайта жүктеп көріңіз.', failed: 'Өзгеріс сақталмады. Қайта көріңіз.', duplicate: 'Бұл сабақ аяқталған.', steps: 'Алдымен «Менің оқуым» бөліміндегі квест қадамдарын орындаңыз.', prerequisites: 'Бұл сабақ үшін алдымен негізгі дағдыларды дамыту қажет. Ұсыныстарды қараңыз.' },
+    en: { selected: 'Activity added to your learning', refresh: 'Could not refresh your data. Please try again.', failed: 'Could not save the change. Please try again.', duplicate: 'This activity was already completed.', steps: 'Complete every quest step in My learning first.', prerequisites: 'Build the prerequisite skills before taking this activity. Check your recommendations.' },
   }[lang]
 
   const mounted = useRef(true)
@@ -72,7 +72,7 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) await load()
       if (!mounted.current) return
-      onToast(`⚠ ${e instanceof ApiError && e.message === 'Quest already completed' ? copy.duplicate : e instanceof ApiError && e.message === 'Quest prerequisites are not met' ? copy.prerequisites : copy.failed}`)
+      onToast(`⚠ ${e instanceof ApiError && e.message === 'Quest already completed' ? copy.duplicate : e instanceof ApiError && /steps/i.test(e.message) ? copy.steps : e instanceof ApiError && e.message === 'Quest prerequisites are not met' ? copy.prerequisites : copy.failed}`)
     } finally {
       busyRef.current = false
       if (mounted.current) setBusy(null)
@@ -124,7 +124,7 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   const progress = recs.progress_to_next_grade ?? p.progress_to_next_grade
 
   const completed = history.filter((item) => item.status === 'completed')
-  const active = history.filter((item) => ['in_progress', 'overdue'].includes(item.status))
+  const active = [...new Map(history.filter((item) => ['selected', 'in_progress', 'overdue'].includes(item.status)).map((item) => [item.event_id, item])).values()]
   const current = active[0]
   const first = recs.recommendations[0]
   const currentInfo = current ? eventInfo(current.event_id) : null
@@ -154,7 +154,7 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
       </div>
       <div className="dashboard-bottom">
         <section className="card next-step"><div className="card-title"><h2>{current ? c.learning : c.nextStep}</h2><span className="chip">{current ? t(current.status === 'overdue' ? 'status_overdue' : 'status_in_progress') : c.recommendations}</span></div>
-          {current || first ? <div className="next-course"><div className="course-art"><Icon name="book" size={34} /></div><div><h3>{current ? eventTitle(current.event_id) : first.quest_title}</h3><p>{current ? `${current.completion_pct}% · ${eventLabel(currentInfo?.format ?? '', lang)}` : `${first.duration_hours} ${t('hours')} · ${eventLabel(first.format, lang)}`}</p>{current && <progress value={current.completion_pct} max={100} aria-label={c.progress} />}<button className="text-button" onClick={() => navigate(current ? 'learning' : 'recommendations')}>{current ? c.continue : c.details}<Icon name="arrow" size={16} /></button></div></div> : <p className="state">{t('no_recs')}</p>}
+          {current || first ? <div className="next-course"><div className="course-art"><Icon name="book" size={34} /></div><div><h3>{current ? eventTitle(current.event_id) : first.quest_title}</h3><p>{current ? `${current.completion_pct ?? 0}% · ${eventLabel(currentInfo?.format ?? '', lang)}` : `${first.duration_hours} ${t('hours')} · ${eventLabel(first.format, lang)}`}</p>{current && <progress value={current.completion_pct ?? 0} max={100} aria-label={c.progress} />}<button className="text-button" onClick={() => navigate(current ? 'learning' : 'recommendations')}>{current ? c.continue : c.details}<Icon name="arrow" size={16} /></button></div></div> : <p className="state">{t('no_recs')}</p>}
         </section>
         <section className="card goal-card"><div className="card-title"><h2>{c.progress}</h2><button className="text-button" onClick={() => navigate('skills')}>{c.details}<Icon name="arrow" size={15} /></button></div><div className="goal-content"><ProgressRing value={progress} caption={t('progress')} size={100} /><div><small>{c.target}</small><h3>{recs.target_grade}</h3><p>{recs.target_role}</p></div></div></section>
       </div>

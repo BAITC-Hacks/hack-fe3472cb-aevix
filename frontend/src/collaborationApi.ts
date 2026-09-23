@@ -53,11 +53,12 @@ interface PairResponse {
   pair_id?: string
 }
 
-const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
 const id = encodeURIComponent
 
 async function request<T>(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST'): Promise<T> {
   const response = await fetch(BASE + path, {
+    credentials: 'include',
     method,
     ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
   })

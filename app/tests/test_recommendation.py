@@ -70,6 +70,9 @@ def test_completion_updates_skill_progress_and_coins():
 
 
 def test_mandatory_completion_awards_no_coins():
+    with SessionLocal() as db:
+        db.query(ActivityHistory).filter_by(employee_id="E0002", event_id="EV_001").delete()
+        db.commit()
     result = complete_quest("E0002", "EV_001")
 
     assert result["coins_earned"] == 0
@@ -128,6 +131,12 @@ def test_jury_registration_selection_team_and_esg_catalog():
 
 
 def test_pair_invitation_hides_scoring_and_creates_space_after_eligible_response():
+    register_employee({
+        "employee_id": "E_JURY_TEST", "full_name": "Pair Eligible Employee",
+        "role": "Backend Engineer", "grade": "Middle",
+        "career_goal": {"target_role": "Backend Engineer", "target_grade": "Senior"},
+        "skills": {"SK_PYTHON": 3, "SK_SYSTEM_DESIGN": 1},
+    })
     register_employee({
         "employee_id": "E_PAIR_NOT_MATCH",
         "full_name": "Pair Not Match",

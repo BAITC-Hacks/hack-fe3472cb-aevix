@@ -2,14 +2,15 @@ from typing import Any
 
 from fastapi import APIRouter
 
+from app.schemas.collaboration import TeamCreate, TeamJoin
 from app.services.team_service import create_team, complete_team_quest, get_team, join_team, set_team_status, start_team_quest
 
 router = APIRouter()
 
 
 @router.post("")
-def create(payload: dict[str, Any]) -> dict[str, Any]:
-    return create_team(payload)
+def create(payload: TeamCreate) -> dict[str, Any]:
+    return create_team(payload.model_dump())
 
 
 @router.get("/{team_id}")
@@ -18,8 +19,8 @@ def read(team_id: str) -> dict[str, Any]:
 
 
 @router.post("/{team_id}/join")
-def join(team_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    return join_team(team_id, payload["employee_id"])
+def join(team_id: str, payload: TeamJoin) -> dict[str, Any]:
+    return join_team(team_id, payload.employee_id)
 
 
 @router.post("/{team_id}/quests/{event_id}/start")

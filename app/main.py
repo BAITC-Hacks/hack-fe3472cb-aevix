@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.db.database import init_db
 from app.routers import employee_router, esg_router, game_router, hr_router, import_router, pair_router, recommendation_router, team_router, wallet_router
 from app.services.import_service import seed_demo_data
+from app.routers import auth_router
+from app.services.auth_service import require_hr
 
 app = FastAPI(
     title=settings.app_name,
@@ -18,7 +20,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,11 +38,12 @@ def health() -> dict[str, str]:
     return {"status": "ok", "app": settings.app_name}
 
 
-app.include_router(import_router.router, prefix="/api/import", tags=["import"])
+app.include_router(auth_router.router, prefix="/api/auth", tags=["authentication"])
+app.include_router(import_router.router, prefix="/api/import", tags=["import"], dependencies=[Depends(require_hr)])
 app.include_router(employee_router.router, prefix="/api/employees", tags=["employees"])
 app.include_router(recommendation_router.router, prefix="/api", tags=["recommendations"])
 app.include_router(game_router.router, prefix="/api/game", tags=["game"])
-app.include_router(hr_router.router, prefix="/api/hr", tags=["hr"])
+app.include_router(hr_router.router, prefix="/api/hr", tags=["hr"], dependencies=[Depends(require_hr)])
 app.include_router(team_router.router, prefix="/api/teams", tags=["teams"])
 app.include_router(pair_router.router, prefix="/api/pairs", tags=["pair collaboration"])
 app.include_router(wallet_router.router, prefix="/api/wallet", tags=["wallet"])

@@ -10,6 +10,7 @@ import { History } from '../components/History'
 import { Icon } from '../components/Icon'
 import { ProgressRing } from '../components/ProgressRing'
 import { QuestCard } from '../components/QuestCard'
+import { QuestStepsPanel } from '../components/QuestStepsPanel'
 import { SkillGap } from '../components/SkillGap'
 import { useI18n } from '../i18n'
 
@@ -22,8 +23,8 @@ interface Props {
   query: string
   busy: string | null
   onSelect: (id: string) => void
-  onRefresh: () => void
-  onComplete: (id: string) => void
+  onRefresh: () => void | Promise<void>
+  onComplete: (id: string) => void | Promise<void>
   navigate: (page: Page) => void
 }
 
@@ -36,9 +37,19 @@ export function EmployeeSection({ page, profile, recs, history, map, query, busy
     kk: { all: 'Барлығы', short: '4 сағатқа дейін', critical: 'Негізгі дағдылар', found: 'Сәйкес сабақтар', reset: 'Сүзгілерді тазалау', hint: 'Бірінші сабақтан бастаңыз: ұсыныстар мақсатыңызға сәйкестігі бойынша реттелген.', saving: 'Сақталуда…' },
     en: { all: 'All', short: 'Up to 4 hours', critical: 'Critical skills', found: 'Matching activities', reset: 'Reset filters', hint: 'Start with the first activity: recommendations are ranked by fit for your goal.', saving: 'Saving…' },
   }[lang]
-  const teamAction = { ru: 'Открыть команду', kk: 'Команданы ашу', en: 'Open team' }[lang]
   const teamEvents = new Set((map.selected_quests ?? []).filter((quest) => quest.mode === 'team').map((quest) => quest.event_id))
-  const active = history.filter((item) => ['in_progress', 'overdue'].includes(item.status))
+  const activeByEvent = new Map<string, TrajectoryItem>()
+  for (const item of history.filter((row) => ['selected', 'in_progress', 'overdue'].includes(row.status))) {
+    const previous = activeByEvent.get(item.event_id)
+    activeByEvent.set(item.event_id, previous ? {
+      ...previous, ...item,
+      mode: item.mode ?? previous.mode,
+      completion_pct: Math.max(previous.completion_pct ?? 0, item.completion_pct ?? 0),
+      completed_steps: Math.max(previous.completed_steps ?? 0, item.completed_steps ?? 0),
+      total_steps: item.total_steps ?? previous.total_steps,
+    } : item)
+  }
+  const active = [...activeByEvent.values()]
   const selectedIds = new Set([...active.map((item) => item.event_id), ...(map.selected_quests ?? []).map((item) => item.event_id)])
   const completed = history.filter((item) => item.status === 'completed')
   const recommendations = recs.recommendations.filter((item) => `${item.quest_title} ${item.reason} ${item.affected_skills.map((s) => s.skill_name).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())).filter((item) => filter === 'short' ? item.duration_hours <= 4 : filter === 'critical' ? item.affected_skills.some((skill) => skill.is_critical) : true)
@@ -58,7 +69,7 @@ export function EmployeeSection({ page, profile, recs, history, map, query, busy
     {page === 'skills' && <SkillGap skills={profile.skills} targetRole={recs.target_role} targetGrade={recs.target_grade} />}
     {page === 'learning' && <div className="grid">
       <section className="card"><h2 className="card-title">{t('status_in_progress')}<small>{active.length}</small></h2>
-        {active.length ? active.map((item) => <article key={item.record_id} className="learning-row"><div><h3>{eventTitle(item.event_id)}</h3>{item.status === 'overdue' && <span className="chip danger">{t('status_overdue')}</span>}<progress max={100} value={item.completion_pct} aria-label={eventTitle(item.event_id)} /><span>{item.completion_pct}%</span></div><button className="btn" disabled={busy !== null} aria-busy={busy === item.event_id} onClick={() => teamEvents.has(item.event_id) ? navigate('collaboration') : onComplete(item.event_id)}>{busy === item.event_id ? copy.saving : teamEvents.has(item.event_id) ? teamAction : t('mark_done')}</button></article>) : <div className="state"><Icon name="book" size={32} /><p>{c.noActive}</p><button className="btn" onClick={() => navigate('recommendations')}>{c.explore}<Icon name="arrow" /></button></div>}
+        {active.length ? <div className="quest-learning-list">{active.map((item) => <QuestStepsPanel key={`${profile.employee_id}:${item.event_id}`} employeeId={profile.employee_id} item={item} teamMode={item.mode === 'team' || teamEvents.has(item.event_id)} busy={busy !== null} saving={busy === item.event_id} onRefresh={onRefresh} onComplete={() => onComplete(item.event_id)} onOpenTeam={() => navigate('collaboration')} />)}</div> : <div className="state"><Icon name="book" size={32} /><p>{c.noActive}</p><button className="btn" onClick={() => navigate('recommendations')}>{c.explore}<Icon name="arrow" /></button></div>}
       </section><History items={history} />
     </div>}
     {page === 'achievements' && <div className="grid"><div className="achievement-summary card"><Icon name="trophy" size={36} /><div><strong>{new Set(completed.map((item) => item.event_id)).size}</strong><p>{c.completed}</p></div><ProgressRing value={profile.progress_to_next_grade} caption={t('progress')} /></div>{completed.length ? <History items={completed} /> : <div className="card state">{c.empty}</div>}</div>}

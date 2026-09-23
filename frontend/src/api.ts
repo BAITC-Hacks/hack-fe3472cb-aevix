@@ -38,9 +38,55 @@ export interface TrajectoryItem {
   record_id: string
   event_id: string
   status: string
-  date: string
-  completion_pct: number
+  date: string | null
+  completion_pct: number | null
   score: number | null
+  source?: 'activity_history' | 'quest_progress'
+  mode?: 'solo' | 'team'
+  completed_steps?: number
+  total_steps?: number
+  title?: string
+}
+
+export interface QuestStep {
+  step: number
+  title: string
+  description: string
+  done: boolean
+}
+
+export interface QuestPlan {
+  employee_id?: string
+  event_id: string
+  title: string
+  provider: 'template' | 'openai'
+  language?: 'ru' | 'kk' | 'en'
+  task: {
+    event_id: string
+    title: string
+    description: string | null
+    type: string | null
+    format: string | null
+    duration_hours: number | null
+    develops_skills: unknown[]
+  }
+  steps: QuestStep[]
+  completed_steps?: number
+  total_steps?: number
+  completion_pct?: number
+  status?: string
+  can_complete?: boolean
+}
+
+export interface QuestStepResult {
+  employee_id: string
+  event_id: string
+  step_number: number
+  status: string
+  completed_steps: number
+  total_steps: number
+  completion_pct?: number
+  can_complete?: boolean
 }
 
 export interface AffectedSkill {
@@ -171,14 +217,14 @@ export interface SelectResponse {
 }
 
 // В dev-режиме Vite проксирует /api на бэкенд (см. vite.config.ts).
-const BASE = import.meta.env.VITE_API_URL ?? ''
+const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message) }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(BASE + path, init)
+  const res = await fetch(BASE + path, { credentials: 'include', ...init })
   if (!res.ok) {
     let detail = `${res.status} ${res.statusText}`
     try {
@@ -202,6 +248,8 @@ export const api = {
   complete: (id: string, eventId: string) =>
     request<CompleteResponse>(`/api/employees/${id}/quests/${eventId}/complete`, { method: 'POST' }),
   selectQuest: (id: string, eventId: string) => request<SelectResponse>(`/api/employees/${id}/quests/${eventId}/select`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'solo' }) }),
+  questSteps: (id: string, eventId: string, language = 'ru', signal?: AbortSignal) => request<QuestPlan>(`/api/employees/${encodeURIComponent(id)}/quests/${encodeURIComponent(eventId)}/steps?language=${encodeURIComponent(language)}`, { signal }),
+  completeQuestStep: (id: string, eventId: string, step: number) => request<QuestStepResult>(`/api/employees/${encodeURIComponent(id)}/quests/${encodeURIComponent(eventId)}/steps/${step}/complete`, { method: 'POST' }),
   wallet: (id: string) => request<WalletResponse>(`/api/wallet/${id}`),
   esgGoals: () => request<EsgGoal[]>('/api/esg-goals'),
   contribute: (id: string, goalId: string, coins: number) => request<ContributionResponse>(`/api/esg-goals/${goalId}/contribute`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employee_id: id, coins }) }),
