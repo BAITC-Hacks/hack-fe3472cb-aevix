@@ -4,49 +4,6 @@ AEVIX - платформа персонального развития сотр�
 
 ## Архитектура
 
-<<<<<<< HEAD
-Главное ядро — Explainable AI Recommendation Engine: сотрудник получает 1–3 следующих шага с skill gaps, critical skills, требованиями role profile, историей активности, prerequisites и понятным объяснением.
-
-Career City — только visualization/gamification layer поверх уже рассчитанных рекомендаций. Growth Coins — необязательная мотивационная фича, а ESG/Impact tags — визуальный слой. Ни один из этих слоёв не влияет на recommendation score.
-
-## Доступы для демо
-
-Адрес: **http://localhost:5173/** (общий экран входа для HR и сотрудников).
-
-| Роль | Логин | Пароль |
-|---|---|---|
-| HR | `hr` | `QQE5Ln5QncFCEOXmUgMpXWnlGyojp0Qi` |
-| Сотрудник (Arman Zhaksylykov, Backend Engineer, Middle) | `E0002` | `MWS7-LMSEy2H80FHiFoT6XfQ4q6AT1p-` |
-
-Пароли действуют для текущей локальной базы. Если пересоздать доступы (`python -m app.setup_hr --rotate`, `python -m app.setup_employees --rotate`), обновите эту таблицу. Пароли остальных сотрудников лежат в `.local/employee-access.csv` (в Git не попадает).
-
-## 2. Архитектура
-
-Проект построен по модульной архитектуре FastAPI:
-
-- app/main.py — точка входа FastAPI
-- app/core/config.py — настройки и переменные окружения
-- app/db/database.py — SQLite engine и сессии SQLAlchemy
-- app/db/models.py — модели данных
-- app/schemas — Pydantic-схемы запросов/ответов
-- app/services — бизнес-логика импорта, рекомендаций, прогресса, игры, HR
-- app/routers — REST-endpoints
-- app/utils — утилиты для грейдов, scoring и explainability
-- app/services/llm_service.py — optional OpenAI explanation layer с template fallback
-- app/services/team_service.py — optional collaboration layer
-- app/services/esg_service.py — Growth Coins wallet и ESG Impact Catalog
-
-## 3. Как положить датасет
-
-В корне проекта находится папка:
-
-- career_quest_dataset/case_1/career_quest_dataset
-
-Если папка не находится рядом с проектом, можно указать путь через переменную окружения:
-
-```bash
-set DATASET_DIR=C:\path\to\dataset
-=======
 ```text
 +-----------------+       HTTP        +-----------------+       HTTPS       +--------------+
 |    Frontend     | <---------------> |     Backend     | <--------------> |    OpenAI    |
@@ -64,7 +21,6 @@ set DATASET_DIR=C:\path\to\dataset
                                       | Career Dataset  |
                                       | employees/events|
                                       +-----------------+
->>>>>>> 7033c80a56c300d12dd4f2b5745db3d4f0fc1c55
 ```
 
 ## Возможности
@@ -112,20 +68,67 @@ OPENAI_MODEL=gpt-6-sol
 
 Если `OPENAI_API_KEY` не задан, приложение продолжит работать через локальные template-ответы.
 
-### 2. Запусти сервисы
+### 2. Настрой логины и пароли
+
+Скрипты генерации паролей запускаются из backend-папки. Если зависимости еще не установлены локально, подготовь окружение:
+
+```bash
+python -m venv env
+env\Scripts\activate
+pip install -r requirements.txt
+```
+
+HR-аккаунт создается локально. По умолчанию логин HR: `hr`, пароль генерируется автоматически:
+
+```bash
+python -m app.setup_hr
+```
+
+Скрипт добавит `HR_USERNAME` и `HR_PASSWORD_HASH` в `.env`, а реальный пароль сохранит только локально:
+
+```text
+.local/hr-access.txt
+```
+
+Пароли сотрудников тоже генерируются локально. Логин сотрудника совпадает с `employee_id`, например `E0002`. Запускай команду после первого старта backend или после импорта dataset, чтобы в базе уже были сотрудники:
+
+```bash
+python -m app.setup_employees
+```
+
+Список employee-логинов и паролей будет сохранен в приватный файл:
+
+```text
+.local/employee-access.csv
+```
+
+Чтобы пересоздать пароли и сбросить активные сессии:
+
+```bash
+python -m app.setup_hr --rotate
+python -m app.setup_employees --rotate
+```
+
+Файлы `.env` и `.local/` уже находятся в `.gitignore`, поэтому пароли и хэши не должны попадать в Git.
+
+### 3. Запусти сервисы
 
 ```bash
 docker compose up --build -d
 ```
 
-### 3. Открой приложение
+### 4. Открой приложение
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8000
 - **Swagger docs**: http://localhost:8000/docs
 - **Demo employee ID**: `E0002`
+- **HR login**: `hr`
+- **HR password**: `QQE5Ln5QncFCEOXmUgMpXWnlGyojp0Qi`
+- **Employee login**: `E0002`
+- **Employee password**: `MWS7-LMSEy2H80FHiFoT6XfQ4q6AT1p-`
 
-### 4. Остановить сервисы
+### 5. Остановить сервисы
 
 ```bash
 docker compose down
@@ -205,6 +208,10 @@ aevix/
 | `DATABASE_URL` | Нет | `sqlite:///./career_quest.db` | SQLAlchemy URL базы данных |
 | `DATASET_DIR` | Нет | bundled dataset | Путь к dataset |
 | `ALLOWED_ORIGINS` | Нет | localhost origins | CORS origins для frontend |
+| `HR_USERNAME` | Нет | `hr` | Логин HR-аккаунта |
+| `HR_PASSWORD_HASH` | Да для HR-login | `None` | Хэш HR-пароля, генерируется через `python -m app.setup_hr` |
+| `HR_SESSION_HOURS` | Нет | `8` | Время жизни auth-сессии в часах |
+| `HR_COOKIE_SECURE` | Нет | `false` | `true` для HTTPS-cookie в production |
 
 ### Frontend
 
@@ -254,6 +261,13 @@ aevix/
 ### Health
 
 - `GET /health` - проверка backend
+
+### Auth
+
+- `POST /api/auth/login` - вход сотрудника или HR
+- `POST /api/auth/hr/login` - вход только для HR
+- `GET /api/auth/session` - текущая auth-сессия
+- `POST /api/auth/logout` - выход
 
 ### Employees
 
