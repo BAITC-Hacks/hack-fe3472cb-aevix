@@ -4,7 +4,9 @@
 
 Это backend для хакатон-проекта HackAlem AI в треке Halyk Bank. Он реализует AI-навигатор развития сотрудника на основе детерминированного рекомендательного движка, который оценивает gaps по навыкам, роль/грейд цели, историю активности и требования следующего уровня.
 
-Главная идея — не геймификация ради геймификации, а explainable AI рекомендации: сотрудник получает конкретный следующий квест с пояснением, почему его стоит выполнить, какие навыки он закрывает и как это связано с целевым грейдом.
+Главное ядро — Explainable AI Recommendation Engine: сотрудник получает 1–3 следующих шага с skill gaps, critical skills, требованиями role profile, историей активности, prerequisites и понятным объяснением.
+
+Career City — только visualization/gamification layer поверх уже рассчитанных рекомендаций. Growth Coins — необязательная мотивационная фича, а ESG/Impact tags — визуальный слой. Ни один из этих слоёв не влияет на recommendation score.
 
 ## 2. Архитектура
 
@@ -139,24 +141,52 @@ curl http://127.0.0.1:8000/api/employees/E0002/recommendations
   "recommendations": [
     {
       "event_id": "EV_006",
+      "title": "Designing High-Load Systems",
       "quest_title": "Designing High-Load Systems",
+      "type": "workshop",
       "score": 0.91,
       "priority": "high",
+      "why_recommended": [
+        "System Design is 1, required level for Senior is 4",
+        "This is a critical skill for the target grade",
+        "The event improves System Design by +1"
+      ],
       "affected_skills": [
         {
           "skill_id": "SK_SYSTEM_DESIGN",
           "current_level": 1,
           "required_level": 4,
           "gain": 1,
-          "expected_after": 2
+          "expected_after": 2,
+          "gap_before": 3,
+          "gap_after": 2,
+          "is_critical": true
         }
       ],
-      "reason": "System Design currently at 1 and required at 4 for Senior...",
-      "game_message": "Следующий квест на карте: Designing High-Load Systems. Он приблизит тебя к уровню Senior Backend Engineer."
+      "history_signal": {
+        "completed_similar": 2,
+        "missed_or_declined_similar": 0,
+        "already_completed_this_event": false
+      },
+      "explanation": "System Design is currently 1 while Senior Backend Engineer requires 4. The event improves System Design by +1 and reduces the gap from 3 to 2."
     }
   ]
 }
 ```
+
+Завершение добровольного квеста возвращает обновление навыков, progress и Growth Coins:
+
+```json
+{
+  "progress_to_next_grade_before": 57.35,
+  "progress_to_next_grade_after": 60.12,
+  "coins_earned": 120,
+  "wallet_balance": 840,
+  "coin_reason": "Voluntary quest completed, critical skill improved, skill gap reduced"
+}
+```
+
+Для `mandatory=true` событие может быть записано в `activity_history`, но `coins_earned` всегда равен `0`.
 
 ## 8. Как работает recommendation engine
 
@@ -174,12 +204,14 @@ curl http://127.0.0.1:8000/api/employees/E0002/recommendations
    - prerequisites выполнены
    - event_id уже не завершен
 6. Считается score на основе нескольких факторов:
-   - gap_importance
-   - critical_skill_bonus
-   - event_impact
-   - role_grade_relevance
-   - history_fit
-7. Возвращается top 1–3 события вместе с explainability.
+  - `skill_gap_score * 0.30`
+  - `critical_skill_score * 0.20`
+  - `event_impact_score * 0.20`
+  - `role_grade_relevance_score * 0.15`
+  - `history_score * 0.10`
+  - `prerequisite_score * 0.05`
+7. Учитываются completed, missed, declined, dropped и уже завершённые события.
+8. Возвращается top 1–3 события вместе с explainability.
 
 Важно: движок не выбирает единственный самый низкий навык и не строит рекомендацию по одному полю профиля — используется несколько факторов одновременно.
 
@@ -190,7 +222,12 @@ curl http://127.0.0.1:8000/api/employees/E0002/recommendations
 - Current Profile — текущий профиль сотрудника
 - Core Skills — текущий набор ключевых навыков
 - Senior Ready / target zone — целевой грейд
-- recommended_quest_ids — top-квесты для следующего шага
+- `center` — progress и wallet balance
+- `districts` — визуальные группы навыков, locked/unlocked status и impact tags
+- `quest_board` — события непосредственно из recommendation engine с `source: recommendation_engine`
+- `completed_quest_ids` — завершённые активности
+
+Game service не рассчитывает score и не выбирает события по потребностям районов.
 
 Это позволяет сотруднику видеть прогресс как карьерную карту, но объяснение остаётся в рекомендациях, а не только в анимации.
 
