@@ -10,8 +10,12 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
       port: 5173,
-      // датасет лежит на уровень выше (../case_1), разрешаем читать его
-      fs: { allow: ['..'] },
+      // Employee data comes through the authenticated API. Keep backend files private.
+      fs: {
+        strict: true,
+        allow: ['.'],
+        deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/.local/**', '**/*.db', '**/*.sqlite', '**/*.sqlite3'],
+      },
       proxy,
     },
     preview: {
