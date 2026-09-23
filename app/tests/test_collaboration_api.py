@@ -82,7 +82,9 @@ def test_team_http_workflow_persists_quest_and_resumes_it(client, team_events, e
     completed = client.post(f"{base}/quests/{team_events[0]}/complete")
     assert completed.status_code == 200, completed.text
     assert completed.json()["completed_team_quests"] == 1
-    assert len(completed.json()["member_results"]) == 2
+    assert len(completed.json()["member_results"]) == 1
+    assert completed.json()["member_results"][0]["employee_id"] == "E0001"
+    assert completed.json()["completed_member_count"] == 2
     assert completed.json()["current_quest"] is None
     assert client.post(f"{base}/quests/{team_events[0]}/complete").status_code == 409
     with SessionLocal() as db:
@@ -318,4 +320,6 @@ def test_team_completion_waits_for_existing_member_plan_and_remains_atomic(clien
     response = client.post(f"{base}/quests/{event_id}/complete")
     assert response.status_code == 200, response.text
     assert response.json()["completed_team_quests"] == 1
-    assert len(response.json()["member_results"]) == 2
+    assert len(response.json()["member_results"]) == 1
+    assert response.json()["member_results"][0]["employee_id"] == "E0001"
+    assert response.json()["completed_member_count"] == 2

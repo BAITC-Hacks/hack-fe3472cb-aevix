@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.db.database import SessionLocal
-from app.db.models import Employee, Event, PairInvitation, PairSpace, Team
+from app.db.models import CoinTransaction, Employee, Event, PairInvitation, PairSpace, QuestProgress, Team, Wallet
 from app.main import app
 
 
@@ -205,3 +205,54 @@ def test_team_mutations_require_csrf_from_the_same_session(client, spaces, emplo
         assert client.post(f"{base}/pause", headers={"X-CSRF-Token": other_browser.headers["X-CSRF-Token"]}).status_code == 403
     assert client.get(base).json()["status"] == "active"
     assert client.post(f"{base}/pause", headers={"X-CSRF-Token": original_token}).json()["status"] == "paused"
+
+
+def test_team_completion_rewards_every_member_without_exposing_colleague_results(client, spaces):
+    balances = {"E0002": 11, "AUTH_PARTNER": 9097}
+    skill_levels = {"E0002": 1, "AUTH_PARTNER": 3}
+    event_id = spaces["event_id"]
+    with SessionLocal() as db:
+        event = db.get(Event, event_id)
+        event.duration_hours = 1
+        event.develops_skills = [{"skill_id": "AUTH_PRIVATE_SKILL", "gain": 1, "max_level": 5}]
+        for employee_id, balance in balances.items():
+            db.merge(Wallet(employee_id=employee_id, balance=balance))
+            employee = db.get(Employee, employee_id)
+            employee.skills = {**employee.skills, "AUTH_PRIVATE_SKILL": skill_levels[employee_id]}
+        db.commit()
+    base = f"/api/teams/{spaces['team_id']}/quests/{event_id}"
+    started = client.post(f"{base}/start")
+    assert started.status_code == 200, started.text
+    completed = client.post(f"{base}/complete")
+    assert completed.status_code == 200, completed.text
+    result = completed.json()
+    assert result["completed_member_count"] == 2
+    assert result["member_ids"] == ["E0002", "AUTH_PARTNER"]
+    assert [member["employee_id"] for member in result["member_results"]] == ["E0002"]
+    personal_result = result["member_results"][0]
+    assert personal_result["updated_skills"]["AUTH_PRIVATE_SKILL"]["before"] == 1
+    assert personal_result["updated_skills"]["AUTH_PRIVATE_SKILL"]["after"] == 2
+
+    private_keys = {"wallet_balance", "updated_skills", "progress_to_next_grade_before", "progress_to_next_grade_after"}
+
+    def private_records(value):
+        if isinstance(value, dict):
+            if private_keys.intersection(value):
+                yield value
+            for item in value.values():
+                yield from private_records(item)
+        elif isinstance(value, list):
+            for item in value:
+                yield from private_records(item)
+
+    assert list(private_records(result)) == [personal_result]
+    with SessionLocal() as db:
+        rewards = db.query(CoinTransaction).filter_by(event_id=event_id).all()
+        assert {reward.employee_id for reward in rewards} == set(balances)
+        assert len(rewards) == 2
+        for reward in rewards:
+            assert reward.amount > 0
+            assert db.get(Wallet, reward.employee_id).balance == balances[reward.employee_id] + reward.amount
+            assert db.get(Employee, reward.employee_id).skills["AUTH_PRIVATE_SKILL"] == skill_levels[reward.employee_id] + 1
+            assert db.query(QuestProgress).filter_by(employee_id=reward.employee_id, event_id=event_id).one().status == "completed"
+        assert personal_result["wallet_balance"] == db.get(Wallet, "E0002").balance

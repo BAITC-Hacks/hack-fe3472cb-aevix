@@ -17,7 +17,7 @@ const copy = {
     analytics: 'Аналитика команды для HR',
     welcome: 'Добро пожаловать',
     hint: 'Единый вход для сотрудников и HR.',
-    username: 'ID сотрудника или логин HR',
+    username: 'ID сотрудника',
     usernameHint: 'Используйте свою рабочую учётную запись.',
     password: 'Личный пароль',
     showPassword: 'Показать пароль',
@@ -28,7 +28,7 @@ const copy = {
     invalid: 'Неверный ID, логин или пароль. Проверьте данные и попробуйте снова.',
     limit: 'Слишком много попыток входа. Подождите немного и попробуйте снова.',
     network: 'Не удалось войти. Проверьте подключение и попробуйте ещё раз.',
-    missingUsername: 'Введите ID сотрудника или логин HR.',
+    missingUsername: 'Введите ID сотрудника.',
   },
   kk: {
     language: 'Интерфейс тілі',
@@ -41,7 +41,7 @@ const copy = {
     analytics: 'HR үшін команда аналитикасы',
     welcome: 'Қош келдіңіз',
     hint: 'Қызметкерлер мен HR үшін бірыңғай кіру.',
-    username: 'Қызметкер ID-і немесе HR логині',
+    username: 'Қызметкер ID-і',
     usernameHint: 'Жұмыс тіркелгіңізді пайдаланыңыз.',
     password: 'Жеке құпиясөз',
     showPassword: 'Құпиясөзді көрсету',
@@ -52,7 +52,7 @@ const copy = {
     invalid: 'ID, логин немесе құпиясөз қате. Деректерді тексеріп, қайта көріңіз.',
     limit: 'Кіру әрекеттері тым көп. Біраз күтіп, қайта көріңіз.',
     network: 'Кіру мүмкін болмады. Байланысты тексеріп, қайта көріңіз.',
-    missingUsername: 'Қызметкер ID-ін немесе HR логинін енгізіңіз.',
+    missingUsername: 'Қызметкер ID-ін енгізіңіз.',
   },
   en: {
     language: 'Interface language',
@@ -65,7 +65,7 @@ const copy = {
     analytics: 'Team insights for HR',
     welcome: 'Welcome back',
     hint: 'One sign-in for employees and HR.',
-    username: 'Employee ID or HR username',
+    username: 'Employee ID',
     usernameHint: 'Use your own work account.',
     password: 'Personal password',
     showPassword: 'Show password',
@@ -76,7 +76,7 @@ const copy = {
     invalid: 'Incorrect ID, username or password. Check your details and try again.',
     limit: 'Too many sign-in attempts. Please wait a little and try again.',
     network: 'Could not sign in. Check your connection and try again.',
-    missingUsername: 'Enter your employee ID or HR username.',
+    missingUsername: 'Enter your employee ID.',
   },
 } as const
 
