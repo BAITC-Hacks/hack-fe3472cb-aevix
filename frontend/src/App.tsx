@@ -108,12 +108,12 @@ export default function App() {
               <Icon name={icon} size={21} />{label}
             </button>
           ))}
-          <button className={page === 'hr' ? 'active' : ''} onClick={() => navigate('hr')}><Icon name="chart" size={21} />{t('nav_hr')}</button>
+          <button aria-current={page === 'hr' ? 'page' : undefined} className={page === 'hr' ? 'active' : ''} onClick={() => navigate('hr')}><Icon name="chart" size={21} />{t('nav_hr')}</button>
         </nav>
         <div className="sidebar-partner"><span>{c.partner}</span><img src="/images/halyk-bank-logo.png" alt="Halyk Bank" /></div>
         <div className="sidebar-settings">
           <div className="lang" role="group" aria-label="Language">
-            {(['kk', 'ru', 'en'] as Lang[]).map((l) => <button key={l} className={lang === l ? 'active' : ''} onClick={() => setLang(l)}>{l === 'kk' ? 'KZ' : l}</button>)}
+            {(['kk', 'ru', 'en'] as Lang[]).map((l) => <button key={l} className={lang === l ? 'active' : ''} aria-pressed={lang === l} onClick={() => setLang(l)}>{l === 'kk' ? 'KZ' : l}</button>)}
           </div>
           <button className="icon-btn" onClick={toggleTheme} aria-label={c.theme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
         </div>
@@ -127,7 +127,7 @@ export default function App() {
 
       <div className="mobile-settings">
         <a className="mobile-brand" href="#/home" aria-label="Career City"><img className="product-logo" src="/brand/career-city-logo.png" alt="" /><span className="brand-wordmark">Career <b>City</b></span></a>
-        <div className="lang" role="group" aria-label="Language">{(['kk', 'ru', 'en'] as Lang[]).map((l) => <button key={l} className={lang === l ? 'active' : ''} onClick={() => setLang(l)}>{l === 'kk' ? 'KZ' : l}</button>)}</div>
+        <div className="lang" role="group" aria-label="Language">{(['kk', 'ru', 'en'] as Lang[]).map((l) => <button key={l} className={lang === l ? 'active' : ''} aria-pressed={lang === l} onClick={() => setLang(l)}>{l === 'kk' ? 'KZ' : l}</button>)}</div>
         <button className="icon-btn" onClick={toggleTheme} aria-label={c.theme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
       </div>
       <main id="workspace" tabIndex={-1} className={page === 'home' ? 'home-main' : 'page-main'}>

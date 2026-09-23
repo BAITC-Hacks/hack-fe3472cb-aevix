@@ -1,0 +1,12 @@
+Generated with the built-in image_gen tool.
+
+Use case: stylized-concept
+Asset type: illustration asset for an existing Career City welcome dashboard banner.
+Primary request: a friendly IT software developer rendered as a polished playful 3D character, similar in spirit to a soft clay 3D student welcome banner, replacing a city illustration.
+Subject: one friendly young adult male developer with short dark hair, warm expressive face, wearing a dark emerald hoodie, sitting behind an open modern laptop, hands naturally typing. Small floating 3D coding angle-bracket symbols and a small rounded code-window tile nearby reinforce software development. No other people.
+Style/medium: premium soft rounded 3D clay render, smooth matte materials, gentle ambient occlusion, charming editorial tech illustration, clean restrained shapes.
+Composition/framing: isolated complete bust-and-laptop composition on a square transparent canvas, centered, generous clear space around silhouette. Show entire head, shoulders, arms, hands and laptop without cropping, slightly three-quarter view facing toward the left, suitable for the right half of a website banner.
+Lighting/mood: bright soft studio lighting, welcoming and optimistic.
+Color palette: emerald green hoodie, silver-blue laptop, pale mint and warm golden accent objects, natural warm skin tones.
+Scene/backdrop: genuinely transparent background with preserved alpha channel, no flat background or checkerboard pattern.
+Constraints: illustration only, no city, no buildings, no graduation cap, no backpack, no written words, no UI text, no watermark, no logos. Clean silhouette that can sit on light mint or dark green backgrounds.

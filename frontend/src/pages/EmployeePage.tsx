@@ -37,9 +37,9 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
         api.trajectory(employeeId),
         api.map(employeeId),
       ])
-      setData({ profile, recs, history, map })
+      if (mounted.current) setData({ profile, recs, history, map })
     } catch (e) {
-      setError((e as Error).message)
+      if (mounted.current) setError((e as Error).message)
     }
   }, [employeeId])
 
@@ -49,6 +49,7 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   }, [load])
 
   const complete = async (eventId: string) => {
+    if (busy) return
     setBusy(eventId)
     try {
       const res = await api.complete(employeeId, eventId)
@@ -64,7 +65,7 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
       if (!mounted.current) return
       onToast(`⚠ ${(e as Error).message}`)
     } finally {
-      setBusy(null)
+      if (mounted.current) setBusy(null)
     }
   }
 
@@ -100,14 +101,21 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   const currentInfo = current ? eventInfo(current.event_id) : null
   const wallet = map.center?.wallet_balance
 
-  if (page !== 'home') return <EmployeeSection page={page} profile={p} recs={recs} history={history} map={map} query={query} busy={busy !== null} onComplete={complete} navigate={navigate} />
+  if (page !== 'home') return <EmployeeSection page={page} profile={p} recs={recs} history={history} map={map} query={query} busy={busy} onComplete={complete} navigate={navigate} />
 
   return (
     <div className="dashboard">
       <header className="page-head home-heading"><div><span className="eyebrow">{c.greeting}</span><h1>{p.full_name.split(' ')[0]}<span className="greeting-dot">.</span></h1><p>{c.overview}</p></div><span className="chip primary">{p.grade} · {p.role}</span></header>
+      <section className="career-direction" aria-label={c.how}>
+        <div className="direction-icon"><Icon name="route" size={24} /></div>
+        <div className="direction-current"><small>{c.how}</small><strong>{p.role} · {p.grade}</strong></div>
+        <Icon name="arrow" size={20} />
+        <div className="direction-target"><small>{c.target}</small><strong>{recs.target_role} · {recs.target_grade}</strong></div>
+        <button className="text-button" onClick={() => navigate('skills')}>{c.openSkills}<Icon name="arrow" size={16} /></button>
+      </section>
       <section className="dashboard-hero">
         <div className="dashboard-hero-copy"><span className="eyebrow">CAREER CITY</span><h2>{c.headline}<br />{c.subline}</h2><p>{c.homeNote}</p><button className="btn" onClick={() => navigate(current ? 'learning' : 'recommendations')}>{current ? c.continue : c.explore}<Icon name="arrow" /></button></div>
-        <span className="hero-caption"><Icon name="city" size={16} />{c.city}</span>
+        <img className="dashboard-hero-art" src="/images/developer-welcome.png" alt="" width={1280} height={1280} draggable={false} decoding="async" />
       </section>
       <div className="dashboard-metrics">
         <button className="metric" onClick={() => navigate('learning')}><span className="metric-icon"><Icon name="book" size={21} /></span><span><small>{c.inProgress}</small><strong>{active.length}</strong></span><Icon name="arrow" size={16} /></button>

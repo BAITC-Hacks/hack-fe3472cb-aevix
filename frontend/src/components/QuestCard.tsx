@@ -7,10 +7,11 @@ interface Props {
   index: number
   quest: Recommendation
   busy: boolean
+  saving: boolean
   onComplete: () => void
 }
 
-export function QuestCard({ index, quest, busy, onComplete }: Props) {
+export function QuestCard({ index, quest, busy, saving, onComplete }: Props) {
   const { t, lang } = useI18n()
   const info = eventInfo(quest.event_id)
   const nextSession = info?.upcoming_sessions?.[0]
@@ -63,6 +64,8 @@ export function QuestCard({ index, quest, busy, onComplete }: Props) {
         {quest.affected_skills.length > 3 && <span>+{quest.affected_skills.length - 3}</span>}
       </div>
 
+      {explanation && <p className="quest-benefit"><Icon name="spark" size={16} /><span>{explanation}</span></p>}
+
       <details className="quest-details">
         <summary>
           <Icon name="spark" size={15} />
@@ -71,7 +74,7 @@ export function QuestCard({ index, quest, busy, onComplete }: Props) {
         </summary>
         <div className="details-body">
           {info?.description && <p className="quest-desc">{info.description}</p>}
-          {explanation ? <p className="quest-explanation">{explanation}</p> : reasons.length > 0 && (
+          {reasons.length > 0 && (
             <ul className="recommendation-reasons">
               {reasons.map((reason) => <li key={reason}>{reason}</li>)}
             </ul>
@@ -111,8 +114,8 @@ export function QuestCard({ index, quest, busy, onComplete }: Props) {
         ) : (
           <span className="session"><Icon name="clock" size={14} /> {copy.selfPaced}</span>
         )}
-        <button type="button" className="btn btn-foot" disabled={busy} onClick={onComplete} aria-busy={busy}>
-          <Icon name="check" size={16} /> {busy ? copy.completing : t('mark_done')}
+        <button type="button" className="btn btn-foot" disabled={busy} onClick={onComplete} aria-busy={saving}>
+          <Icon name="check" size={16} /> {saving ? copy.completing : t('mark_done')}
         </button>
       </div>
     </article>
