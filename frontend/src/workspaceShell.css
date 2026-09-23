@@ -2,8 +2,9 @@
 .session-check .card { min-width: min(380px, calc(100vw - 48px)); }
 .workspace-account-controls { display: flex; align-items: center; justify-content: flex-end; gap: 16px; min-width: 0; }
 .workspace-account-controls .header-profile { max-width: 330px; }
-.own-profile { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.own-profile .picker-copy { min-width: 0; }
+.workspace-header.employee-header { justify-content: flex-end; }
+.employee-header .global-search { flex: 0 1 410px; width: min(410px, 100%); min-width: 0; margin-left: auto; }
+.employee-header .workspace-account-controls { flex-shrink: 0; }
 .employee-preview-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 18px; margin-bottom: 22px; border: 1px solid var(--border); border-radius: 12px; background: var(--primary-soft); color: var(--primary); }
 .employee-preview-banner > div { flex: 1 1 220px; min-width: 0; }
 .employee-preview-banner strong { font-size: 12px; overflow-wrap: anywhere; }
@@ -21,6 +22,11 @@
 .workspace-drawer nav button.active { color: var(--primary); background: var(--primary-soft); }
 .workspace-drawer nav button:hover, .workspace-logout:hover { background: var(--surface-2); }
 .workspace-logout { margin-top: auto; border-top: 1px solid var(--border); color: var(--danger); }
+.sidebar-settings .workspace-logout { width: 100%; margin-top: 8px; }
+@media (min-width: 721px) {
+  .workspace-header .workspace-menu-trigger { display: none; }
+  .employee-header .workspace-account-controls { display: none; }
+}
 @media (max-width: 700px) {
   .workspace-account-controls { gap: 9px; }
   .workspace-account-controls .header-profile { max-width: none; }
