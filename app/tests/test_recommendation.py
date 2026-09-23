@@ -5,6 +5,7 @@ from app.db.models import ActivityHistory, Employee
 from app.services.game_service import get_game_map
 from app.services.esg_service import list_goals
 from app.services.import_service import register_employee, seed_demo_data
+from app.services.pair_service import create_invitation, get_pair_space, list_invitations, preview_invitation, respond_to_invitation
 from app.services.recommendation_service import complete_quest, get_employee_recommendations
 from app.services.quest_service import select_quest
 from app.services.team_service import create_team, join_team
@@ -123,3 +124,43 @@ def test_jury_registration_selection_team_and_esg_catalog():
     team = create_team({"name": "Jury Team", "creator_id": "E_JURY_TEST", "max_members": 2})
     assert join_team(team["team_id"], "E0002")["member_ids"]
     assert list_goals()
+
+
+def test_pair_invitation_hides_scoring_and_creates_space_after_eligible_response():
+    register_employee({
+        "employee_id": "E_PAIR_NOT_MATCH",
+        "full_name": "Pair Not Match",
+        "role": "HR Business Partner",
+        "grade": "Middle",
+        "career_goal": {"target_role": "HR Business Partner", "target_grade": "Senior"},
+        "skills": {},
+    })
+    select_quest("E0002", "EV_005")
+    invitation = create_invitation({
+        "inviter_id": "E0002",
+        "event_id": "EV_005",
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-07",
+        "format": "online_together",
+        "display_mode": "alias",
+        "display_name": "Алия",
+    })
+
+    assert invitation["activity_title"] == "System Design Fundamentals"
+    assert "score" not in invitation
+    assert "skill_gaps" not in invitation
+    assert invitation["display_name"] == "Алия"
+
+    preview = preview_invitation(invitation["invitation_id"], "E_PAIR_NOT_MATCH")
+    assert preview["eligible"] is False
+    assert "score" not in preview
+    assert "skill_gaps" not in preview
+
+    response = respond_to_invitation(invitation["invitation_id"], {"employee_id": "E_PAIR_NOT_MATCH", "decision": "accept"})
+    assert response["status"] == "not_a_match"
+
+    response = respond_to_invitation(invitation["invitation_id"], {"employee_id": "E_JURY_TEST", "decision": "accept"})
+    assert response["status"] == "accepted"
+    pair = get_pair_space(response["pair_id"])
+    assert pair["members"] == ["E0002", "E_JURY_TEST"]
+    assert list_invitations("E0002") == []

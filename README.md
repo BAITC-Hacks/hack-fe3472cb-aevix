@@ -106,6 +106,11 @@ uvicorn app.main:app --reload
 - GET /api/employees/{employee_id}/recommendations
 - POST /api/employees/{employee_id}/quests/{event_id}/complete
 - POST /api/employees/{employee_id}/quests/{event_id}/select
+- POST /api/pairs/invitations
+- GET /api/pairs/invitations?employee_id=E0002
+- GET /api/pairs/invitations/{invitation_id}/preview?employee_id=E0003
+- POST /api/pairs/invitations/{invitation_id}/respond
+- GET /api/pairs/{pair_id}
 - GET /api/game/{employee_id}/map
 - GET /api/game/{employee_id}/progress
 - GET /api/game/{employee_id}/quests
@@ -283,6 +288,12 @@ Game service не рассчитывает score и не выбирает соб
 Команды являются optional collaboration layer: создатель добавляет участников, команда запускает и завершает квесты, может быть поставлена на паузу или перейти в `waiting_for_member` после трёх командных квестов. Командная механика не меняет AI score.
 
 Growth Coins не являются деньгами и не формируют рейтинг сотрудников. Их можно потратить на ESG-инициативы после проверки HR: mentoring, Green Office, образовательную программу или workshop. API возвращает `pending_hr_review`, а HR видит только агрегированную вовлечённость через `/api/hr/esg-engagement`.
+
+### Совместный квест
+
+Кнопка «Пройти с коллегой» публикует только выбранную активность и договорённости: диапазон дат, формат (`online_together`, `in_person` или `self_paced_discussion`) и отображаемое имя/псевдоним. Scoring, skill gaps и полная рекомендация в приглашение не попадают.
+
+Перед откликом второй сотрудник вызывает `preview` endpoint. Backend заново проверяет событие через его собственный recommendation context и возвращает `eligible` с персональным объяснением. Если активность не подходит по роли, грейду или развитию, ответ будет `eligible: false`, а pair space не создаётся. После подходящего согласия создаётся pair space с участниками и следующим шагом.
 
 ## 11. Как проверить на профиле E0002
 
