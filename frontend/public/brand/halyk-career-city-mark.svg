@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="50 75 686 686" fill="none">
+  <title>HalykBank Career City</title>
+  <style>
+    .green { fill: #007e68; }
+    .gold { fill: #f4ad00; }
+    @media (prefers-color-scheme: dark) {
+      .green { fill: #83cbb6; }
+      .gold { fill: #f2bb4a; }
+    }
+  </style>
+  <path class="gold" d="M109 146h113c13 0 22 3 33 15l119 125H145c-42 0-70-29-70-69v-38c0-21 13-33 34-33Z"/>
+  <path class="green" d="M447 143h214c32 0 50 20 50 49v434c0 32-18 48-50 48h-73c-33 0-54-20-54-52V394L248 677c-20 19-40 15-57-2l-72-72c-18-18-15-38 2-56l279-269v-85c0-32 15-50 47-50Z"/>
+</svg>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, type EmployeeListItem } from './api'
 import { EmployeePicker } from './components/EmployeePicker'
+import { BrandLogo } from './components/BrandLogo'
 import { cityCopy } from './cityCopy'
 import { Icon } from './components/Icon'
 import { useI18n, type Lang } from './i18n'
@@ -96,8 +97,8 @@ export default function App() {
     <>
       <a className="skip-link" href="#workspace" onClick={(event) => { event.preventDefault(); document.getElementById('workspace')?.focus() }}>{c.navigation}</a>
       <aside className="sidebar">
-        <a className="halyk-brand" aria-label="Career City" href="#" onClick={(e) => { e.preventDefault(); navigate('home') }}>
-          <img className="product-logo" src="/brand/career-city-logo.png" alt="" /><span className="brand-wordmark">Career <b>City</b></span>
+        <a className="halyk-brand" aria-label="HalykBank Career City" href="#/home" onClick={(e) => { e.preventDefault(); navigate('home') }}>
+          <BrandLogo />
         </a>
         <nav className="side-nav" aria-label={c.navigation}>
           {([
@@ -127,7 +128,7 @@ export default function App() {
       </header>
 
       <div className="mobile-settings">
-        <a className="mobile-brand" href="#/home" aria-label="Career City"><img className="product-logo" src="/brand/career-city-logo.png" alt="" /><span className="brand-wordmark">Career <b>City</b></span></a>
+        <a className="mobile-brand" href="#/home" aria-label="HalykBank Career City" onClick={(e) => { e.preventDefault(); navigate('home') }}><BrandLogo compact /></a>
         <div className="lang" role="group" aria-label="Language">{(['kk', 'ru', 'en'] as Lang[]).map((l) => <button key={l} className={lang === l ? 'active' : ''} aria-pressed={lang === l} onClick={() => setLang(l)}>{l === 'kk' ? 'KZ' : l}</button>)}</div>
         <button className="icon-btn" onClick={toggleTheme} aria-label={c.theme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
       </div>
