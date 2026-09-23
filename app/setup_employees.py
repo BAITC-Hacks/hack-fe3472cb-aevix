@@ -20,6 +20,9 @@ FIELDS = ["employee_id", "full_name", "username", "password"]
 def provision(employee_ids: list[str] | None = None, *, rotate: bool = False, output: Path | None = None) -> dict:
     output = output or Path(__file__).resolve().parents[1] / ".local" / "employee-access.csv"
     output.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    pending_exports = list(output.parent.glob(f".{output.name}.*.pending"))
+    if pending_exports:
+        raise RuntimeError(f"An unfinished credentials export needs recovery before provisioning: {pending_exports[0]}. Preserve this private file and restore it to {output} after checking the previous command result.")
     existing_rows = {}
     if output.exists():
         with output.open(newline="") as handle:
@@ -56,7 +59,7 @@ def provision(employee_ids: list[str] | None = None, *, rotate: bool = False, ou
         if created or reset:
             # Prepare the private file before committing; a failed DB commit leaves
             # neither new accounts nor a replacement of the existing access file.
-            fd, pending_path = tempfile.mkstemp(prefix=".employee-access-", suffix=".csv", dir=output.parent)
+            fd, pending_path = tempfile.mkstemp(prefix=f".{output.name}.", suffix=".pending", dir=output.parent)
             try:
                 with os.fdopen(fd, "w", newline="") as handle:
                     writer = csv.DictWriter(handle, fieldnames=FIELDS)
@@ -69,7 +72,10 @@ def provision(employee_ids: list[str] | None = None, *, rotate: bool = False, ou
                 db.rollback()
                 Path(pending_path).unlink(missing_ok=True)
                 raise
-            os.replace(pending_path, output)
+            try:
+                os.replace(pending_path, output)
+            except OSError as exc:
+                raise RuntimeError(f"Accounts saved. Credentials remain in the private recovery file {pending_path}; move it to {output} before rerunning provisioning.") from exc
             os.chmod(output, 0o600)
     return {"created": created, "reset": reset, "file": str(output)}
 

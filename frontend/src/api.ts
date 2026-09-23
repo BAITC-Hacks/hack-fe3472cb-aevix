@@ -1,5 +1,5 @@
 import type { Catalog } from './catalog'
-import { isPreviewOnly, sessionExpired, sessionHeaders } from './sessionTransport'
+import { isPreviewOnly, sessionExpired, sessionHeaders, sessionRevision } from './sessionTransport'
 export type Grade = 'Junior' | 'Middle' | 'Senior' | 'Lead'
 
 export interface CareerGoal {
@@ -228,9 +228,10 @@ export class ApiError extends Error {
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (isPreviewOnly() && !['GET', 'HEAD', 'OPTIONS'].includes((init?.method ?? 'GET').toUpperCase())) throw new ApiError('Read-only employee preview', 403)
+  const revision = sessionRevision()
   const res = await fetch(BASE + path, { ...init, credentials: 'include', headers: sessionHeaders(init) })
   if (!res.ok) {
-    if (res.status === 401) sessionExpired()
+    if (res.status === 401 && revision === sessionRevision()) sessionExpired()
     let detail = `${res.status} ${res.statusText}`
     try {
       const body = await res.json()

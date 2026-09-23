@@ -18,9 +18,10 @@ interface Props {
   employees: EmployeeListItem[]
   selectedId: string
   onSelect: (id: string) => void
+  preview?: boolean
 }
 
-export function EmployeePicker({ employees, selectedId, onSelect }: Props) {
+export function EmployeePicker({ employees, selectedId, onSelect, preview = false }: Props) {
   const { t, lang } = useI18n()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -30,6 +31,7 @@ export function EmployeePicker({ employees, selectedId, onSelect }: Props) {
   const dialogId = useId()
   const titleId = useId()
   const selected = employees.find((e) => e.employee_id === selectedId)
+  const previewLabel = { ru: 'Просмотр сотрудника', kk: 'Қызметкерді қарау', en: 'Employee preview' }[lang]
   const copy = {
     ru: { title: 'Выберите сотрудника', close: 'Закрыть', empty: 'Никого не нашли. Попробуйте другое имя или роль.', found: 'Найдено', more: 'Показаны первые 200. Уточните поиск.', choose: 'Выбрать сотрудника' },
     kk: { title: 'Қызметкерді таңдаңыз', close: 'Жабу', empty: 'Ешкім табылмады. Басқа ат немесе рөлді іздеңіз.', found: 'Табылды', more: 'Алғашқы 200 көрсетілген. Іздеуді нақтылаңыз.', choose: 'Қызметкерді таңдау' },
@@ -85,13 +87,13 @@ export function EmployeePicker({ employees, selectedId, onSelect }: Props) {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? dialogId : undefined}
-        aria-label={`${copy.choose}${selected ? `: ${selected.full_name}` : ''}`}
+        aria-label={`${preview ? previewLabel : copy.choose}${selected ? `: ${selected.full_name}` : ''}`}
         onClick={() => { setQ(''); setOpen(true) }}
       >
         <span className="picker-avatar" aria-hidden="true">{selected ? initials(selected.full_name) : <Icon name="people" />}</span>
         <span className="picker-copy">
           <span className="picker-name">{selected?.full_name ?? t('pick_employee')}</span>
-          <span className="picker-role">{selected ? `${selected.role} · ${selected.grade}` : copy.choose}</span>
+          <span className="picker-role">{preview ? previewLabel : selected ? `${selected.role} · ${selected.grade}` : copy.choose}</span>
         </span>
         <Icon name="chevron" />
       </button>

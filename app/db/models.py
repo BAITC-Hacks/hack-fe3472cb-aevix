@@ -192,6 +192,14 @@ class PairInvitation(Base):
     created_at = Column(Date, nullable=False)
 
 
+class PairInvitationDismissal(Base):
+    __tablename__ = "pair_invitation_dismissals"
+
+    invitation_id = Column(String, ForeignKey("pair_invitations.invitation_id"), primary_key=True)
+    employee_id = Column(String, ForeignKey("employees.employee_id"), primary_key=True)
+    created_at = Column(Date, nullable=False, default=date.today)
+
+
 class PairSpace(Base):
     __tablename__ = "pair_spaces"
 

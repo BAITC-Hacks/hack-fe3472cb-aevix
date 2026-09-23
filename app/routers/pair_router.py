@@ -32,10 +32,14 @@ def publish_invitation(payload: PairInvitationCreate, session: AuthSession = Dep
 
 
 @router.get("/invitations")
-def invitations(employee_id: str | None = None, session: AuthSession = Depends(require_session)) -> list[dict[str, Any]]:
+def invitations(
+    employee_id: str | None = None, own: bool = False,
+    session: AuthSession = Depends(require_session),
+) -> list[dict[str, Any]]:
+    employee_id = employee_id or session.employee_id
     if employee_id is not None:
         assert_employee_access(session, employee_id)
-    return list_invitations(employee_id)
+    return list_invitations(employee_id, own=own)
 
 
 @router.post("/invitations/{invitation_id}/respond")

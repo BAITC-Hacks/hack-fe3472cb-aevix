@@ -60,8 +60,14 @@ def start(team_id: str, event_id: str, _team: dict = Depends(team_actor)) -> dic
 
 
 @router.post("/{team_id}/quests/{event_id}/complete")
-def complete(team_id: str, event_id: str, _team: dict = Depends(team_actor)) -> dict[str, Any]:
-    return complete_team_quest(team_id, event_id)
+def complete(team_id: str, event_id: str, _team: dict = Depends(team_actor), session: AuthSession = Depends(require_session)) -> dict[str, Any]:
+    result = complete_team_quest(team_id, event_id)
+    # The shared reward is atomic, but colleagues' skills and wallet balances are private.
+    return {
+        **result,
+        "completed_member_count": len(result["member_results"]),
+        "member_results": [member for member in result["member_results"] if member["employee_id"] == session.employee_id],
+    }
 
 
 @router.post("/{team_id}/pause")

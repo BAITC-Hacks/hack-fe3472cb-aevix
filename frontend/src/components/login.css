@@ -8,6 +8,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 24px;
   width: min(100%, 1280px);
   margin: 0 auto;
@@ -16,6 +17,9 @@
 
 .login-brand { width: 212px; max-width: 100%; }
 .login-brand .brand-lockup { display: block; width: 100%; height: auto; }
+.login-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.login-theme { display: grid; place-items: center; width: 44px; min-height: 44px; padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text-2); }
+.login-theme:hover { color: var(--primary); background: var(--primary-soft); }
 .login-languages { display: flex; flex-shrink: 0; gap: 2px; padding: 4px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 .login-languages button { min-width: 44px; min-height: 44px; padding: 8px; border: 0; border-radius: 10px; background: transparent; color: var(--text-2); font-size: 12px; font-weight: 600; }
 .login-languages button[aria-pressed='true'] { background: var(--primary-soft); color: var(--primary); }
@@ -24,6 +28,9 @@
 .login-main {
   display: grid;
   align-items: center;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   min-height: calc(100dvh - 116px);
   padding: 40px 40px 80px;
 }

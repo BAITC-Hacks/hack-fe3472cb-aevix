@@ -8,6 +8,7 @@ import './login.css'
 const copy = {
   ru: {
     language: 'Язык интерфейса',
+    theme: 'Сменить тему',
     eyebrow: 'РАСТЁМ ВМЕСТЕ',
     title: 'Ваш следующий шаг начинается здесь',
     intro: 'Развивайте навыки, учитесь вместе и открывайте новые возможности в Career City.',
@@ -31,6 +32,7 @@ const copy = {
   },
   kk: {
     language: 'Интерфейс тілі',
+    theme: 'Тақырыпты өзгерту',
     eyebrow: 'БІРГЕ ДАМИМЫЗ',
     title: 'Келесі қадамыңыз осы жерден басталады',
     intro: 'Career City-де дағдыларыңызды дамытыңыз, бірге оқыңыз және жаңа мүмкіндіктерді ашыңыз.',
@@ -54,6 +56,7 @@ const copy = {
   },
   en: {
     language: 'Interface language',
+    theme: 'Change theme',
     eyebrow: 'GROW TOGETHER',
     title: 'Your next step starts here',
     intro: 'Build your skills, learn together and discover new opportunities in Career City.',
@@ -82,9 +85,11 @@ type LoginError = 'invalid' | 'limit' | 'network' | 'missingUsername'
 export interface LoginPageProps {
   onLogin: (username: string, password: string) => Promise<void>
   loading?: boolean
+  theme?: 'light' | 'dark'
+  onToggleTheme?: () => void
 }
 
-export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
+export function LoginPage({ onLogin, loading = false, theme = 'light', onToggleTheme }: LoginPageProps) {
   const { lang, setLang } = useI18n()
   const c = copy[lang]
   const id = useId()
@@ -126,12 +131,14 @@ export function LoginPage({ onLogin, loading = false }: LoginPageProps) {
   return <div className="login-page" lang={lang}>
     <header className="login-header">
       <div className="login-brand" role="img" aria-label="HalykBank Career City"><BrandLogo /></div>
-      <div className="login-languages" role="group" aria-label={c.language}>
+      <div className="login-tools"><div className="login-languages" role="group" aria-label={c.language}>
         {(['kk', 'ru', 'en'] as Lang[]).map((language) => <button
           type="button" key={language} lang={language}
           aria-label={{ kk: 'Қазақша', ru: 'Русский', en: 'English' }[language]}
           aria-pressed={lang === language} onClick={() => setLang(language)}
         >{language === 'kk' ? 'KZ' : language.toUpperCase()}</button>)}
+      </div>
+      {onToggleTheme && <button type="button" className="login-theme" aria-label={c.theme} title={c.theme} onClick={onToggleTheme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} /></button>}
       </div>
     </header>
 

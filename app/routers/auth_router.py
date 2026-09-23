@@ -51,7 +51,7 @@ def _login(payload: LoginPayload, request: Request, response: Response, db: Sess
     check_origin(request)
     if hr_only and not settings.hr_password_hash:
         raise HTTPException(503, "HR access has not been configured")
-    peer = check_login_limit(request)
+    peer = check_login_limit(request, payload.username)
     employee_id = None
     is_hr_username = hmac.compare_digest(payload.username.encode(), settings.hr_username.encode())
     if hr_only or is_hr_username:

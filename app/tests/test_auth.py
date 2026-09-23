@@ -128,7 +128,7 @@ def test_valid_csrf_allows_registration_and_upload(client):
 def test_wrong_credentials_are_generic_and_login_attempts_are_limited(client):
     for index in range(5):
         response = client.post("/api/auth/hr/login", json={
-            "username": "test-hr" if index % 2 else "unknown", "password": "wrong-password",
+            "username": "test-hr", "password": "wrong-password",
         }, headers={"X-Forwarded-For": f"192.0.2.{index}"})
         assert response.status_code == 401
         assert response.json()["detail"] == "Invalid username or password"
@@ -137,7 +137,8 @@ def test_wrong_credentials_are_generic_and_login_attempts_are_limited(client):
     assert blocked.headers["retry-after"] == "300"
     assert auth_service.COOKIE_NAME not in client.cookies
     with auth_service._lock:
-        auth_service._failures["testclient"] = [time.monotonic() - 301]
+        for key in auth_service._failures:
+            auth_service._failures[key] = [time.monotonic() - 301]
     assert login(client).json()["authenticated"] is True
 
 

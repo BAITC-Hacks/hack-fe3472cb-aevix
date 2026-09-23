@@ -44,18 +44,22 @@ def check_origin(request: Request) -> None:
         raise HTTPException(403, "Untrusted request origin")
 
 
-def check_login_limit(request: Request) -> str:
+def check_login_limit(request: Request, username: str) -> str:
     # Do not trust client-supplied forwarding headers for the rate-limit key.
-    key = request.client.host if request.client else "unknown"
+    peer = request.client.host if request.client else "unknown"
+    key = f"identity:{len(peer)}:{peer}{username}"
+    peer_key = f"peer:{peer}"
     now = time.monotonic()
     with _lock:
-        for stale in [peer for peer, attempts in _failures.items() if not attempts or attempts[-1] <= now - 300]:
+        for stale in [identity for identity, attempts in _failures.items() if not attempts or attempts[-1] <= now - 300]:
             del _failures[stale]
         attempts = [at for at in _failures.get(key, []) if at > now - 300]
-        if len(attempts) >= 5 or (key not in _failures and len(_failures) >= 10_000):
+        burst = [at for at in _failures.get(peer_key, []) if at > now - 60]
+        if len(attempts) >= 5 or len(burst) >= 300 or (key not in _failures and len(_failures) >= 10_000):
             raise HTTPException(429, "Too many login attempts. Try again in 5 minutes.", headers={"Retry-After": "300"})
         # Count attempts before verification so concurrent requests cannot bypass the limit.
         _failures[key] = [*attempts, now]
+        _failures[peer_key] = [*burst, now]
     return key
 
 

@@ -6,10 +6,11 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
-from app.db.models import ActivityHistory, Employee, Event, PairInvitation, PairSpace, QuestProgress
+from app.db.models import ActivityHistory, Employee, Event, PairInvitation, PairInvitationDismissal, PairSpace, QuestProgress
 from app.schemas.collaboration import PairInvitationCreate, PairInvitationResponse
 from app.services.quest_service import quest_write_transaction
 from app.services.recommendation_service import get_employee_recommendations
@@ -87,13 +88,21 @@ def create_invitation(payload: dict[str, Any]) -> dict[str, Any]:
         return _public_invitation(db, invitation)
 
 
-def list_invitations(employee_id: str | None = None) -> list[dict[str, Any]]:
+def list_invitations(employee_id: str | None = None, own: bool = False) -> list[dict[str, Any]]:
+    if own and employee_id is None:
+        raise HTTPException(status_code=422, detail="employee_id is required for authored invitations")
     with SessionLocal() as db:
         query = db.query(PairInvitation).filter_by(status="open")
         if employee_id is not None:
             if not db.get(Employee, employee_id):
                 raise HTTPException(status_code=404, detail="Employee not found")
-            query = query.filter(PairInvitation.inviter_id != employee_id)
+            if own:
+                query = query.filter(PairInvitation.inviter_id == employee_id)
+            else:
+                dismissed = select(PairInvitationDismissal.invitation_id).where(
+                    PairInvitationDismissal.employee_id == employee_id,
+                )
+                query = query.filter(PairInvitation.inviter_id != employee_id, ~PairInvitation.invitation_id.in_(dismissed))
         return [_public_invitation(db, item) for item in query.order_by(PairInvitation.created_at.desc(), PairInvitation.invitation_id).all()]
 
 
@@ -131,9 +140,13 @@ def respond_to_invitation(invitation_id: str, payload: dict[str, Any]) -> dict[s
             raise HTTPException(status_code=422, detail="Inviter cannot respond to own invitation")
         if not db.get(Employee, request.employee_id):
             raise HTTPException(status_code=404, detail="Responding employee not found")
+        dismissal = db.get(PairInvitationDismissal, (invitation_id, request.employee_id))
         if request.decision == "decline":
-            invitation.status = "declined"
+            if dismissal is None:
+                db.add(PairInvitationDismissal(invitation_id=invitation_id, employee_id=request.employee_id))
             return {"invitation_id": invitation_id, "status": "declined", "eligible": False}
+        if dismissal is not None:
+            raise HTTPException(status_code=409, detail="Invitation was dismissed for this employee")
 
         event = db.get(Event, invitation.event_id)
         if not event:
@@ -181,6 +194,7 @@ def preview_invitation(invitation_id: str, employee_id: str) -> dict[str, Any]:
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
         match = _candidate_match(db, invitation, employee_id)
+        dismissed = db.get(PairInvitationDismissal, (invitation_id, employee_id)) is not None
         return {
             "invitation_id": invitation_id,
             "event_id": invitation.event_id,
@@ -188,7 +202,8 @@ def preview_invitation(invitation_id: str, employee_id: str) -> dict[str, Any]:
             "eligible": match["eligible"],
             "explanation": match["explanation"],
             "employee_friendly_reason": match["employee_friendly_reason"],
-            "can_respond": match["eligible"] and invitation.status == "open" and not _is_completed(db, invitation.inviter_id, invitation.event_id),
+            "dismissed": dismissed,
+            "can_respond": match["eligible"] and not dismissed and invitation.status == "open" and not _is_completed(db, invitation.inviter_id, invitation.event_id),
         }
 
 

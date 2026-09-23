@@ -72,6 +72,7 @@ export const collaborationApi = {
   startTeamQuest: (teamId: string, eventId: string) => request<LearningTeam>(`/api/teams/${id(teamId)}/quests/${id(eventId)}/start`, undefined, 'POST'),
   completeTeamQuest: (teamId: string, eventId: string) => request<LearningTeam & { member_results: CompleteResponse[] }>(`/api/teams/${id(teamId)}/quests/${id(eventId)}/complete`, undefined, 'POST'),
   invitations: (employeeId?: string) => request<PairInvitation[]>(`/api/pairs/invitations${employeeId ? `?employee_id=${id(employeeId)}` : ''}`),
+  ownInvitations: (employeeId: string) => request<PairInvitation[]>(`/api/pairs/invitations?employee_id=${id(employeeId)}&own=true`),
   invite: (payload: { inviter_id: string; event_id: string; format: PairFormat; display_mode: 'name' | 'alias'; display_name?: string; start_date?: string; end_date?: string }) => request<PairInvitation>('/api/pairs/invitations', payload),
   preview: (invitationId: string, employeeId: string) => request<PairPreview>(`/api/pairs/invitations/${id(invitationId)}/preview?employee_id=${id(employeeId)}`),
   respond: (invitationId: string, employee_id: string, decision: 'accept' | 'decline') => request<PairResponse>(`/api/pairs/invitations/${id(invitationId)}/respond`, { employee_id, decision }),
