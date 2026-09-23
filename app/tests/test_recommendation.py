@@ -1,9 +1,5 @@
 from datetime import date
 
-import pytest
-from fastapi import HTTPException
-from sqlalchemy import event as sqlalchemy_event
-
 from app.db.database import SessionLocal, init_db
 from app.db.models import ActivityHistory, Employee
 from app.services.game_service import get_game_map

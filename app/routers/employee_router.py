@@ -36,16 +36,6 @@ def list_employees() -> list[dict[str, Any]]:
         db.close()
 
 
-
-@router.get("/catalog")
-def catalog() -> dict[str, Any]:
-    with SessionLocal() as db:
-        return {
-            "skills": [{"skill_id": row.skill_id, "name": row.name, "type": row.type, "category": row.category} for row in db.query(Skill).all()],
-            "role_profiles": [{"role": row.role, "grade": row.grade, "required_skills": row.required_skills or {}, "critical_skills": row.critical_skills or []} for row in db.query(RoleProfile).all()],
-            "events": [{"event_id": row.event_id, "title": row.title, "description": row.description, "type": row.type, "format": row.format, "duration_hours": row.duration_hours, "mandatory": row.mandatory, "upcoming_sessions": row.upcoming_sessions or []} for row in db.query(Event).all()],
-        }
-
 @router.get("/{employee_id}")
 def get_employee(employee_id: str) -> dict[str, Any]:
     db: Session = SessionLocal()
