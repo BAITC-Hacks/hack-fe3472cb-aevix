@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.services.hr_service import get_hr_dashboard
+from app.services.esg_service import engagement
 
 router = APIRouter()
 
@@ -23,3 +24,8 @@ def inactive_employees() -> dict:
 @router.get("/events-effectiveness")
 def events_effectiveness() -> dict:
     return get_hr_dashboard()
+
+
+@router.get("/esg-engagement")
+def esg_engagement() -> dict:
+    return engagement()

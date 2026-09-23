@@ -115,7 +115,7 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
       </section>
       <section className="dashboard-hero">
         <div className="dashboard-hero-copy"><span className="eyebrow">CAREER CITY</span><h2>{c.headline}<br />{c.subline}</h2><p>{c.homeNote}</p><button className="btn" onClick={() => navigate(current ? 'learning' : 'recommendations')}>{current ? c.continue : c.explore}<Icon name="arrow" /></button></div>
-        <img className="dashboard-hero-art" src="/images/developer-welcome.png" alt="" width={1280} height={1280} draggable={false} decoding="async" />
+        <img className="dashboard-hero-art" src="/images/developer-welcome.png" alt="" width={1254} height={1254} draggable={false} decoding="async" />
       </section>
       <div className="dashboard-metrics">
         <button className="metric" onClick={() => navigate('learning')}><span className="metric-icon"><Icon name="book" size={21} /></span><span><small>{c.inProgress}</small><strong>{active.length}</strong></span><Icon name="arrow" size={16} /></button>

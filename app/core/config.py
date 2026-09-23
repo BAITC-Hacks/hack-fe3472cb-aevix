@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     environment: str = "development"
     dataset_dir: str = str((Path(__file__).resolve().parents[2] / "career_quest_dataset" / "case_1" / "career_quest_dataset").resolve())
     database_url: str = "sqlite:///./career_quest.db"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-6-astra"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

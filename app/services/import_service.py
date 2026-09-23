@@ -102,6 +102,39 @@ def import_employees(file_path: str | Path) -> int:
         db.close()
 
 
+def register_employee(payload: dict[str, Any]) -> dict[str, Any]:
+    db: Session = SessionLocal()
+    try:
+        employee_id = payload.get("employee_id")
+        if not employee_id or not payload.get("full_name"):
+            raise HTTPException(status_code=422, detail="employee_id and full_name are required")
+        record = db.get(Employee, employee_id)
+        data = {
+            "employee_id": employee_id,
+            "full_name": payload["full_name"],
+            "department": payload.get("department"),
+            "role": payload.get("role"),
+            "grade": payload.get("grade"),
+            "manager_id": payload.get("manager_id"),
+            "hire_date": _parse_date(payload.get("hire_date")),
+            "tenure_months": payload.get("tenure_months"),
+            "work_format": payload.get("work_format"),
+            "preferred_language": payload.get("preferred_language"),
+            "career_goal": payload.get("career_goal"),
+            "skills": payload.get("skills", {}),
+            "last_review_date": _parse_date(payload.get("last_review_date")),
+        }
+        if record is None:
+            db.add(Employee(**data))
+        else:
+            for key, value in data.items():
+                setattr(record, key, value)
+        db.commit()
+        return {"status": "registered", "employee_id": employee_id, "updated": record is not None}
+    finally:
+        db.close()
+
+
 def import_events(file_path: str | Path) -> int:
     path = Path(file_path)
     payload = _json_load(path)

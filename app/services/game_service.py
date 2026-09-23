@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 from app.db.database import SessionLocal
-from app.db.models import ActivityHistory, Employee, RoleProfile, Wallet
+from app.db.models import ActivityHistory, Employee, QuestProgress, RoleProfile, Wallet
 from app.services.recommendation_service import get_employee_recommendations
 from app.utils.grade import get_role_target, grade_index
 
@@ -52,8 +52,11 @@ def get_game_map(employee_id: str) -> dict[str, Any]:
         required = (profile.required_skills if profile else None) or {}
         current = employee.skills or {}
         wallet = db.get(Wallet, employee_id)
-        completed = _completed_quest_ids(db, employee_id)
-        city_progress = _city_progress(len(completed))
+        completed = {
+            item.event_id
+            for item in db.query(ActivityHistory).filter_by(employee_id=employee_id, status="completed").all()
+        }
+        selected = db.query(QuestProgress).filter_by(employee_id=employee_id).all()
         groups = [
             ("engineering", "Engineering District", ["SK_SYSTEM_DESIGN", "SK_API_DESIGN", "SK_PYTHON"], ["Governance"]),
             ("security", "Security Gate", ["SK_APP_SECURITY"], ["Governance"]),
@@ -116,6 +119,11 @@ def get_game_map(employee_id: str) -> dict[str, Any]:
             "nodes": nodes,
             "recommended_quest_ids": [item["event_id"] for item in recs["recommendations"]],
             "completed_quest_ids": sorted(completed),
+            "selected_quests": [
+                {"event_id": item.event_id, "status": item.status, "mode": item.mode}
+                for item in selected
+                if item.status != "completed"
+            ],
         }
     finally:
         db.close()
