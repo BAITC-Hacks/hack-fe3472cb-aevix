@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import SessionLocal
-from app.db.models import ActivityHistory, CoinTransaction, Employee, Event, RoleProfile, Skill, Wallet
+from app.db.models import ActivityHistory, CoinTransaction, Employee, Event, QuestProgress, QuestStepProgress, RoleProfile, Skill, Wallet
 from app.services.llm_service import explain_recommendations
 from app.services.quest_service import mark_quest_completed
 from app.utils.explainability import build_game_message
@@ -225,6 +225,7 @@ def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool
             )
             recommendations.append({
                 "title": event.title,
+                "description": event.description,
                 "event_id": event.event_id,
                 "type": event.type,
                 "quest_title": event.title,
@@ -304,7 +305,8 @@ def get_employee_trajectory(employee_id: str) -> list[dict[str, Any]]:
     db: Session = SessionLocal()
     try:
         rows = db.query(ActivityHistory).filter_by(employee_id=employee_id).order_by(ActivityHistory.date.asc()).all()
-        return [{
+        history = [{
+            "source": "activity_history",
             "record_id": row.record_id,
             "event_id": row.event_id,
             "status": row.status,
@@ -312,6 +314,21 @@ def get_employee_trajectory(employee_id: str) -> list[dict[str, Any]]:
             "completion_pct": row.completion_pct,
             "score": row.score,
         } for row in rows]
+        progress_rows = db.query(QuestProgress).filter_by(employee_id=employee_id).all()
+        for progress in progress_rows:
+            completed_steps = db.query(QuestStepProgress).filter_by(employee_id=employee_id, event_id=progress.event_id, status="completed").count()
+            history.append({
+                "source": "quest_progress",
+                "record_id": f"QUEST_{progress.id}",
+                "event_id": progress.event_id,
+                "status": progress.status,
+                "mode": progress.mode,
+                "date": progress.completed_at.isoformat() if progress.completed_at else None,
+                "completion_pct": None,
+                "score": None,
+                "completed_steps": completed_steps,
+            })
+        return history
     finally:
         db.close()
 

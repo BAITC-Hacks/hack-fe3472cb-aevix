@@ -105,6 +105,8 @@ uvicorn app.main:app --reload
 - GET /api/employees/{employee_id}/trajectory
 - GET /api/employees/{employee_id}/recommendations
 - POST /api/employees/{employee_id}/quests/{event_id}/complete
+- GET /api/employees/{employee_id}/quests/{event_id}/steps
+- POST /api/employees/{employee_id}/quests/{event_id}/steps/{step_number}/complete
 - POST /api/employees/{employee_id}/quests/{event_id}/select
 - POST /api/pairs/invitations
 - GET /api/pairs/invitations?employee_id=E0002
@@ -280,6 +282,10 @@ curl http://127.0.0.1:8000/api/employees/E_TEST_001/recommendations
 - `completed_quest_ids` — завершённые активности
 
 Game service не рассчитывает score и не выбирает события по потребностям районов.
+
+Frontend использует Halyk Together как основной пользовательский flow. Career City убран из интерфейса; старые `/api/game/*` endpoints сохранены только для обратной совместимости backend-клиентов.
+
+Quest steps строятся через OpenAI Responses API, если задан `OPENAI_API_KEY`. Backend передаёт модели только выбранное событие и профиль сотрудника, а результатом становится structured JSON из 3–5 шагов. Без ключа используется локальный template fallback, поэтому прохождение квеста не ломается.
 
 Это позволяет сотруднику видеть прогресс как карьерную карту, но объяснение остаётся в рекомендациях, а не только в анимации.
 

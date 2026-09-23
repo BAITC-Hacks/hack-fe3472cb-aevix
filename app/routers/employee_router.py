@@ -7,7 +7,7 @@ from app.db.database import SessionLocal
 from app.db.models import ActivityHistory, Employee
 from app.schemas.employee import EmployeeBase
 from app.services.import_service import register_employee
-from app.services.quest_service import select_quest
+from app.services.quest_service import complete_quest_step, get_quest_steps, select_quest
 from app.services.progress_service import compute_progress_to_next_grade
 from app.services.recommendation_service import complete_quest, get_employee_profile, get_employee_recommendations, get_employee_trajectory
 
@@ -79,3 +79,13 @@ def complete_employee_quest(employee_id: str, event_id: str) -> dict[str, Any]:
 @router.post("/{employee_id}/quests/{event_id}/select")
 def select_employee_quest(employee_id: str, event_id: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
     return select_quest(employee_id, event_id, (payload or {}).get("mode", "solo"))
+
+
+@router.get("/{employee_id}/quests/{event_id}/steps")
+def quest_steps(employee_id: str, event_id: str) -> dict[str, Any]:
+    return get_quest_steps(employee_id, event_id)
+
+
+@router.post("/{employee_id}/quests/{event_id}/steps/{step_number}/complete")
+def complete_step(employee_id: str, event_id: str, step_number: int) -> dict[str, Any]:
+    return complete_quest_step(employee_id, event_id, step_number)

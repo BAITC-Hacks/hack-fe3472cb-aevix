@@ -94,3 +94,45 @@ def explain_recommendations(context: dict[str, Any], candidates: list[dict[str, 
         return {**fallback, **parsed, "provider": "openai"}
     except (OSError, ValueError, KeyError, TypeError, error.URLError):
         return fallback
+
+
+def generate_quest_steps(event: dict[str, Any], employee: dict[str, Any]) -> dict[str, Any]:
+    fallback = {
+        "provider": "template",
+        "event_id": event["event_id"],
+        "title": event.get("title", event["event_id"]),
+        "steps": [
+            {"step": 1, "title": "Подготовиться", "description": "Изучите описание активности и определите вопрос, который хотите решить.", "done": False},
+            {"step": 2, "title": "Практика", "description": "Выполните основное упражнение или разберите предложенный кейс.", "done": False},
+            {"step": 3, "title": "Обсудить результат", "description": "Зафиксируйте выводы и обсудите их с коллегой или наставником.", "done": False},
+            {"step": 4, "title": "Закрепить", "description": "Сформулируйте следующий рабочий шаг и отметьте квест завершённым.", "done": False},
+        ],
+    }
+    if not settings.openai_api_key:
+        return fallback
+
+    payload = {
+        "model": settings.openai_model,
+        "input": [
+            {"role": "system", "content": "Create a practical 3-5 step development quest plan. Use only the supplied event and employee context. Return JSON."},
+            {"role": "user", "content": json.dumps({"event": event, "employee": employee}, ensure_ascii=False)},
+        ],
+        "text": {"format": {"type": "json_schema", "name": "quest_steps", "schema": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"steps": {"type": "array", "minItems": 3, "maxItems": 5, "items": {"type": "object", "additionalProperties": False, "properties": {"step": {"type": "integer"}, "title": {"type": "string"}, "description": {"type": "string"}, "done": {"type": "boolean"}}, "required": ["step", "title", "description", "done"]}}},
+            "required": ["steps"],
+        }}},
+    }
+    try:
+        http_request = request.Request("https://api.openai.com/v1/responses", data=json.dumps(payload).encode("utf-8"), headers={"Authorization": f"Bearer {settings.openai_api_key}", "Content-Type": "application/json"}, method="POST")
+        with request.urlopen(http_request, timeout=12) as response:
+            raw = json.loads(response.read().decode("utf-8"))
+        output_text = raw.get("output_text")
+        if not output_text:
+            output_text = next((content.get("text") for item in raw.get("output", []) for content in item.get("content", []) if content.get("text")), None)
+        parsed = json.loads(output_text or "{}")
+        if not isinstance(parsed.get("steps"), list) or not 3 <= len(parsed["steps"]) <= 5:
+            return fallback
+        return {**fallback, **parsed, "provider": "openai"}
+    except (OSError, ValueError, KeyError, TypeError, error.URLError):
+        return fallback

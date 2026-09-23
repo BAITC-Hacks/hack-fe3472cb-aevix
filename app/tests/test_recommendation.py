@@ -6,6 +6,7 @@ from app.services.game_service import get_game_map
 from app.services.esg_service import list_goals
 from app.services.import_service import register_employee, seed_demo_data
 from app.services.pair_service import create_invitation, get_pair_space, list_invitations, preview_invitation, respond_to_invitation
+from app.services.quest_service import get_quest_steps
 from app.services.recommendation_service import complete_quest, get_employee_recommendations
 from app.services.quest_service import select_quest
 from app.services.team_service import create_team, join_team
@@ -164,3 +165,12 @@ def test_pair_invitation_hides_scoring_and_creates_space_after_eligible_response
     pair = get_pair_space(response["pair_id"])
     assert pair["members"] == ["E0002", "E_JURY_TEST"]
     assert list_invitations("E0002") == []
+
+
+def test_quest_steps_are_available_without_requiring_openai():
+    result = get_quest_steps("E0002", "EV_005")
+
+    assert result["event_id"] == "EV_005"
+    assert result["provider"] in {"template", "openai"}
+    assert 3 <= len(result["steps"]) <= 5
+    assert all({"step", "title", "description", "done"} <= set(step) for step in result["steps"])
