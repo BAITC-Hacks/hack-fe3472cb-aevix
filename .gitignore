@@ -53,3 +53,6 @@ dmypy.json
 
 # PyCharm
 *.iml
+# Frontend
+node_modules/
+!.env.example

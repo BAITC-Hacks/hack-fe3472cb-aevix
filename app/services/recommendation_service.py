@@ -279,13 +279,19 @@ def complete_quest(employee_id: str, event_id: str) -> dict[str, Any]:
             assigned_by="self",
         ))
 
+        target_profile = db.query(RoleProfile).filter_by(role=(employee.career_goal or {}).get("target_role") or employee.role, grade=(employee.career_goal or {}).get("target_grade") or next_grade(employee.grade or "Junior")).first()
+        required_skills = (target_profile.required_skills if target_profile else None) or {}
+
         before_after = {}
+        # копия словаря: иначе SQLAlchemy не заметит изменения JSON-поля и не сохранит их
+        skills = dict(employee.skills or {})
         for item in event.develops_skills or []:
             skill_id = item.get("skill_id")
-            before = int((employee.skills or {}).get(skill_id, 0))
-            after = min(before + int(item.get("gain", 0)), int(item.get("max_level", 5)))
-            employee.skills[skill_id] = after
-            before_after[skill_id] = {"before": before, "after": after, "required_for_next_grade": max(1, int((db.query(RoleProfile).filter_by(role=(employee.career_goal or {}).get("target_role") or employee.role, grade=(employee.career_goal or {}).get("target_grade") or next_grade(employee.grade or "Junior")).first() or {}).get("required_skills", {}).get(skill_id, 1))) }
+            before = int(skills.get(skill_id, 0))
+            after = max(before, min(before + int(item.get("gain", 0)), int(item.get("max_level", 5))))
+            skills[skill_id] = after
+            before_after[skill_id] = {"before": before, "after": after, "required_for_next_grade": max(1, int(required_skills.get(skill_id, 1)))}
+        employee.skills = skills
 
         db.commit()
         db.refresh(employee)
