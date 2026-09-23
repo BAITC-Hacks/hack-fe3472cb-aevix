@@ -106,6 +106,11 @@ uvicorn app.main:app --reload
 - GET /api/employees/{employee_id}/recommendations
 - POST /api/employees/{employee_id}/quests/{event_id}/complete
 - POST /api/employees/{employee_id}/quests/{event_id}/select
+- POST /api/pairs/invitations
+- GET /api/pairs/invitations?employee_id=E0002
+- GET /api/pairs/invitations/{invitation_id}/preview?employee_id=E0003
+- POST /api/pairs/invitations/{invitation_id}/respond
+- GET /api/pairs/{pair_id}
 - GET /api/game/{employee_id}/map
 - GET /api/game/{employee_id}/progress
 - GET /api/game/{employee_id}/quests
@@ -282,7 +287,13 @@ Game service не рассчитывает score и не выбирает соб
 
 Команды являются optional collaboration layer: создатель добавляет участников, команда запускает и завершает квесты, может быть поставлена на паузу или перейти в `waiting_for_member` после трёх командных квестов. Командная механика не меняет AI score.
 
-Growth Coins не являются деньгами и не формируют рейтинг сотрудников. В текущем прототипе их можно направлять на ESG-инициативы: mentoring, Green Office и Responsible AI Learning. Взнос списывается с кошелька; статус `pending_hr_review` означает, что сама инициатива ещё ожидает проверки HR. HR видит только агрегированную вовлечённость через `/api/hr/esg-engagement`.
+Growth Coins не являются деньгами и не формируют рейтинг сотрудников. Их можно потратить на ESG-инициативы после проверки HR: mentoring, Green Office, образовательную программу или workshop. API возвращает `pending_hr_review`, а HR видит только агрегированную вовлечённость через `/api/hr/esg-engagement`.
+
+### Совместный квест
+
+Кнопка «Пройти с коллегой» публикует только выбранную активность и договорённости: диапазон дат, формат (`online_together`, `in_person` или `self_paced_discussion`) и отображаемое имя/псевдоним. Scoring, skill gaps и полная рекомендация в приглашение не попадают.
+
+Перед откликом второй сотрудник вызывает `preview` endpoint. Backend заново проверяет событие через его собственный recommendation context и возвращает `eligible` с персональным объяснением. Если активность не подходит по роли, грейду или развитию, ответ будет `eligible: false`, а pair space не создаётся. После подходящего согласия создаётся pair space с участниками и следующим шагом.
 
 ## 11. Как проверить на профиле E0002
 
@@ -312,25 +323,3 @@ python -m pytest app/tests/test_recommendation.py -q
 - Детерминированный fallback engine обязателен.
 - Нет публичного рейтинга сотрудников.
 
-
-## 14. Интерфейс и проверка обновления
-
-Frontend: `cd frontend && npm install && npm run dev`. Vite проксирует API на
-`http://127.0.0.1:8000`; другой адрес задаётся через `BACKEND_URL`.
-
-- В рекомендациях кнопка «Добавить в обучение» вызывает
-  `POST /api/employees/{id}/quests/{event_id}/select`. Занятие появляется в
-  «Моём обучении» и остаётся там после перезагрузки. Завершение обновляет навыки,
-  историю, уровень города и баланс в одной транзакции. Повторное завершение
-  того же неповторяемого занятия возвращает `409` без повторной награды.
-- Основной экран получает рекомендации с `include_explanations=false`.
-  «Объяснить мой план» отдельно запрашивает `include_explanations=true&language=ru`
-  (также поддерживаются `kk` и `en`). При недоступности модели подборка остаётся
-  доступной. Текст агента дополняет исходные расчёты и не меняет порядок событий.
-- В «Моём городе» доступны баланс, последние операции и взносы Growth Coins
-  в ESG-инициативы. Статус проверки HR отображается отдельно: принятый взнос
-  не означает, что инициатива уже одобрена или реализована.
-- Вёрстка поддерживает телефон, планшет, две темы и три языка.
-
-Проверки: `cd frontend && npm run build` и `python -m pytest app/tests -q`.
-Backend-тесты используют временные базы и отключают внешние вызовы модели.

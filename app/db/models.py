@@ -150,3 +150,30 @@ class ESGContribution(Base):
     coins = Column(Integer, nullable=False)
     status = Column(String, nullable=False, default="pending_hr_review")
     created_at = Column(Date, nullable=False)
+
+
+class PairInvitation(Base):
+    __tablename__ = "pair_invitations"
+
+    invitation_id = Column(String, primary_key=True, index=True)
+    inviter_id = Column(String, ForeignKey("employees.employee_id"), nullable=False)
+    event_id = Column(String, ForeignKey("events.event_id"), nullable=False)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    format = Column(String, nullable=False)
+    display_mode = Column(String, nullable=False, default="name")
+    display_name = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="open")
+    created_at = Column(Date, nullable=False)
+
+
+class PairSpace(Base):
+    __tablename__ = "pair_spaces"
+
+    pair_id = Column(String, primary_key=True, index=True)
+    invitation_id = Column(String, ForeignKey("pair_invitations.invitation_id"), nullable=False)
+    event_id = Column(String, ForeignKey("events.event_id"), nullable=False)
+    inviter_id = Column(String, ForeignKey("employees.employee_id"), nullable=False)
+    partner_id = Column(String, ForeignKey("employees.employee_id"), nullable=False)
+    status = Column(String, nullable=False, default="active")
+    created_at = Column(Date, nullable=False)

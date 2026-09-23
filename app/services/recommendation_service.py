@@ -1,18 +1,19 @@
+import json
 from collections import defaultdict
 from datetime import date
+from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.database import SessionLocal
 from app.db.models import ActivityHistory, CoinTransaction, Employee, Event, RoleProfile, Skill, Wallet
 from app.services.llm_service import explain_recommendations
-from app.services.progress_service import compute_progress_to_next_grade as _calculate_progress
-from app.services.quest_service import check_prerequisites, completion_is_current, mark_quest_completed, quest_transaction
+from app.services.quest_service import mark_quest_completed
 from app.utils.explainability import build_game_message
-from app.utils.grade import get_role_target
+from app.utils.grade import GRADE_ORDER, get_role_target, grade_index, next_grade
 from app.utils.scoring import clamp, derive_priority, expected_after, role_grade_relevance_score
 
 
@@ -26,6 +27,29 @@ def _load_skill_map() -> dict[str, str]:
     finally:
         db.close()
     return skill_map
+
+
+def _calculate_progress(employee: Employee, target_role: str, target_grade: str) -> float:
+    db: Session = SessionLocal()
+    try:
+        profile = db.query(RoleProfile).filter_by(role=target_role, grade=target_grade).first()
+    finally:
+        db.close()
+    if not profile:
+        return 100.0
+
+    required_skills = profile.required_skills or {}
+    critical = set(profile.critical_skills or [])
+    weighted_values = []
+    for skill_id, required_level in required_skills.items():
+        current_level = int((employee.skills or {}).get(skill_id, 0))
+        progress = min(current_level / max(required_level, 1), 1.0)
+        weight = 1.5 if skill_id in critical else 1.0
+        weighted_values.append(progress * weight)
+
+    if not weighted_values:
+        return 100.0
+    return round(sum(weighted_values) / sum([1.5 if skill_id in critical else 1.0 for skill_id in required_skills.keys()]) * 100, 2)
 
 
 def get_employee_profile(employee_id: str) -> dict[str, Any]:
@@ -60,7 +84,7 @@ def get_employee_profile(employee_id: str) -> dict[str, Any]:
         db.close()
 
 
-def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool = True, language: str = "en") -> dict[str, Any]:
+def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool = True) -> dict[str, Any]:
     db: Session = SessionLocal()
     try:
         employee = db.get(Employee, employee_id)
@@ -81,8 +105,6 @@ def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool
                 "target_grade": target_grade,
                 "progress_to_next_grade": 100.0,
                 "recommendations": [],
-                "explanation_provider": "template",
-                "explanation_summary": "No target role profile is available to calculate recommendations.",
             }
 
         skill_names = _load_skill_map()
@@ -105,8 +127,6 @@ def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool
                 continue
             if event.target_grades and target_grade not in event.target_grades and employee.grade not in event.target_grades:
                 continue
-            if any(int(current_skills.get(skill_id, 0)) < int(level) for skill_id, level in (event.prerequisites or {}).items()):
-                continue
 
             event_fit = []
             for skill_gain in event.develops_skills:
@@ -122,9 +142,11 @@ def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool
                 if gap <= 0:
                     continue
 
-                expected = expected_after(current_level, int(skill_gain.get("gain", 0)), int(skill_gain.get("max_level", 5)))
-                if expected <= current_level:
+                prereq_level = (event.prerequisites or {}).get(skill_id)
+                if prereq_level and current_level < int(prereq_level):
                     continue
+
+                expected = expected_after(current_level, int(skill_gain.get("gain", 0)), int(skill_gain.get("max_level", 5)))
                 event_fit.append({
                     "skill_id": skill_id,
                     "skill_name": skill_names.get(skill_id, skill_id),
@@ -148,9 +170,9 @@ def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool
                 or (events_by_id.get(history_item.event_id) and events_by_id[history_item.event_id].type == event.type)
             ]
             completed_similar = sum(item.status == "completed" for item in similar_history)
-            missed_or_declined_similar = sum(item.status in {"missed", "no_show", "declined", "dropped"} for item in similar_history)
-            already_completed = any(item.status == "completed" for item in event_history)
-            if completion_is_current(event, event_history):
+            missed_or_declined_similar = sum(item.status in {"missed", "declined", "dropped"} for item in similar_history)
+            already_completed = completed_similar > 0
+            if already_completed:
                 continue
 
             history_score = clamp(0.5 + completed_similar * 0.15 - missed_or_declined_similar * 0.5)
@@ -242,7 +264,6 @@ def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool
         recommendations = recommendations[:limit]
         llm_result = explain_recommendations(
             {
-                "language": language,
                 "role": employee.role,
                 "current_grade": employee.grade,
                 "target_role": target_role,
@@ -259,7 +280,7 @@ def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool
         for recommendation in recommendations:
             generated = explanations.get(recommendation["event_id"])
             if generated:
-                recommendation["agent_explanation"] = generated["explanation"]
+                recommendation["explanation"] = generated["explanation"]
                 recommendation["employee_friendly_reason"] = generated["employee_friendly_reason"]
                 recommendation["risk_note"] = generated["risk_note"]
                 recommendation["expected_outcome"] = generated["expected_outcome"]
@@ -282,8 +303,6 @@ def get_employee_recommendations(employee_id: str, limit: int = 3, use_llm: bool
 def get_employee_trajectory(employee_id: str) -> list[dict[str, Any]]:
     db: Session = SessionLocal()
     try:
-        if not db.get(Employee, employee_id):
-            raise HTTPException(status_code=404, detail="Employee not found")
         rows = db.query(ActivityHistory).filter_by(employee_id=employee_id).order_by(ActivityHistory.date.asc()).all()
         return [{
             "record_id": row.record_id,
@@ -298,110 +317,94 @@ def get_employee_trajectory(employee_id: str) -> list[dict[str, Any]]:
 
 
 def complete_quest(employee_id: str, event_id: str) -> dict[str, Any]:
-    # History, skills, wallet and selection must succeed or roll back together.
-    with quest_transaction() as db:
-        return _complete_quest(db, employee_id, event_id)
+    db: Session = SessionLocal()
+    try:
+        employee = db.get(Employee, employee_id)
+        event = db.get(Event, event_id)
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
 
-
-def _complete_quest(db: Session, employee_id: str, event_id: str) -> dict[str, Any]:
-    employee = db.query(Employee).filter_by(employee_id=employee_id).with_for_update().first()
-    event = db.get(Event, event_id)
-    if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-    check_prerequisites(employee, event)
-
-    history = db.query(ActivityHistory).filter_by(employee_id=employee_id, event_id=event_id).all()
-    if completion_is_current(event, history):
-        raise HTTPException(status_code=409, detail="Quest already completed")
-
-    target_role, target_grade = get_role_target(employee.__dict__, employee.role)
-    progress_before = _calculate_progress(employee, target_role, target_grade)
-    active = [entry for entry in history if entry.status in {"selected", "registered", "in_progress", "overdue"}]
-    if active:
-        record_id = active[0].record_id
-        for record in active:
-            record.status = "completed"
-            record.completion_pct = 100
-            record.date = date.today()
-            record.score = 100
-    else:
-        record_id = f"R_{uuid4().hex}"
+        target_role = (employee.career_goal or {}).get("target_role") or employee.role
+        target_grade = (employee.career_goal or {}).get("target_grade") or next_grade(employee.grade or "Junior")
+        progress_before = _calculate_progress(employee, target_role, target_grade)
+        record_id = f"R_{employee_id}_{event_id}_{len(db.query(ActivityHistory).filter_by(employee_id=employee_id).all()) + 1}"
         db.add(ActivityHistory(
-            record_id=record_id, employee_id=employee_id, event_id=event_id,
-            date=date.today(), status="completed", completion_pct=100, score=100, assigned_by="self",
-        ))
-
-    role_profile = db.query(RoleProfile).filter_by(role=target_role, grade=target_grade).first()
-    required_skills = (role_profile.required_skills if role_profile else None) or {}
-    critical_skills = set(role_profile.critical_skills or []) if role_profile else set()
-
-    before_after = {}
-    # копия словаря: иначе SQLAlchemy не заметит изменения JSON-поля и не сохранит их
-    skills = dict(employee.skills or {})
-    for item in event.develops_skills or []:
-        skill_id = item.get("skill_id")
-        if not skill_id:
-            continue
-        before = int(skills.get(skill_id, 0))
-        after = max(before, expected_after(before, int(item.get("gain", 0)), int(item.get("max_level", 5))))
-        skills[skill_id] = after
-        before_after[skill_id] = {
-            "before": before,
-            "after": after,
-            "required_for_next_grade": max(1, int(required_skills.get(skill_id, 1))),
-        }
-    employee.skills = skills
-
-    progress_after = _calculate_progress(employee, target_role, target_grade)
-    improved_critical = any(
-        skill_id in critical_skills and values["after"] > values["before"]
-        for skill_id, values in before_after.items()
-    )
-    gap_reduced = any(
-        values["after"] > values["before"] and values["before"] < values["required_for_next_grade"]
-        for values in before_after.values()
-    )
-    coins_earned = 0
-    coin_reason = "Mandatory event completed; no Growth Coins awarded"
-    if not event.mandatory:
-        coins_earned = int((event.duration_hours or 0) * 10)
-        if improved_critical:
-            coins_earned += 50
-        if gap_reduced:
-            coins_earned += 30
-        coin_reason = "Voluntary quest completed"
-        if improved_critical:
-            coin_reason += ", critical skill improved"
-        if gap_reduced:
-            coin_reason += ", skill gap reduced"
-        wallet = db.get(Wallet, employee_id)
-        if wallet is None:
-            wallet = Wallet(employee_id=employee_id, balance=coins_earned)
-            db.add(wallet)
-        else:
-            # Keep a simultaneous ESG debit instead of overwriting its balance.
-            wallet.balance = Wallet.balance + coins_earned
-        db.add(CoinTransaction(
-            transaction_id=f"TX_{employee_id}_{event_id}_{record_id}",
+            record_id=record_id,
             employee_id=employee_id,
             event_id=event_id,
-            amount=coins_earned,
-            reason=coin_reason,
-            created_at=date.today(),
+            date=date.today(),
+            status="completed",
+            completion_pct=100,
+            score=100,
+            assigned_by="self",
         ))
-    mark_quest_completed(employee_id, event_id, db)
-    db.flush()
-    wallet = db.get(Wallet, employee_id)
-    return {
-        "employee_id": employee_id,
-        "completed_quest": event.title,
-        "updated_skills": before_after,
-        "progress_to_next_grade_before": round(progress_before, 2),
-        "progress_to_next_grade_after": round(progress_after, 2),
-        "coins_earned": coins_earned,
-        "wallet_balance": wallet.balance if wallet else 0,
-        "coin_reason": coin_reason,
-        "message": f"Квест завершён. {event.title} отмечен как выполненный.",
-    }
+
+        before_after = {}
+        role_profile = db.query(RoleProfile).filter_by(role=target_role, grade=target_grade).first()
+        critical_skills = set(role_profile.critical_skills or []) if role_profile else set()
+        for item in event.develops_skills or []:
+            skill_id = item.get("skill_id")
+            before = int((employee.skills or {}).get(skill_id, 0))
+            after = expected_after(before, int(item.get("gain", 0)), int(item.get("max_level", 5)))
+            employee.skills[skill_id] = after
+            before_after[skill_id] = {
+                "before": before,
+                "after": after,
+                "required_for_next_grade": int((role_profile.required_skills if role_profile else {}).get(skill_id, 1)),
+            }
+
+        db.commit()
+        db.refresh(employee)
+        progress_after = _calculate_progress(employee, target_role, target_grade)
+        improved_critical = any(
+            skill_id in critical_skills and values["after"] > values["before"]
+            for skill_id, values in before_after.items()
+        )
+        gap_reduced = any(
+            values["after"] > values["before"] and values["before"] < values["required_for_next_grade"]
+            for values in before_after.values()
+        )
+        coins_earned = 0
+        coin_reason = "Mandatory event completed; no Growth Coins awarded"
+        if not event.mandatory:
+            coins_earned = int((event.duration_hours or 0) * 10)
+            if improved_critical:
+                coins_earned += 50
+            if gap_reduced:
+                coins_earned += 30
+            coin_reason = "Voluntary quest completed"
+            if improved_critical:
+                coin_reason += ", critical skill improved"
+            if gap_reduced:
+                coin_reason += ", skill gap reduced"
+            wallet = db.get(Wallet, employee_id)
+            if wallet is None:
+                wallet = Wallet(employee_id=employee_id, balance=0)
+                db.add(wallet)
+            wallet.balance += coins_earned
+            db.add(CoinTransaction(
+                transaction_id=f"TX_{employee_id}_{event_id}_{record_id}",
+                employee_id=employee_id,
+                event_id=event_id,
+                amount=coins_earned,
+                reason=coin_reason,
+                created_at=date.today(),
+            ))
+            db.commit()
+        wallet = db.get(Wallet, employee_id)
+        mark_quest_completed(employee_id, event_id)
+        return {
+            "employee_id": employee_id,
+            "completed_quest": event.title,
+            "updated_skills": before_after,
+            "progress_to_next_grade_before": round(progress_before, 2),
+            "progress_to_next_grade_after": round(progress_after, 2),
+            "coins_earned": coins_earned,
+            "wallet_balance": wallet.balance if wallet else 0,
+            "coin_reason": coin_reason,
+            "message": f"Квест завершён. {event.title} отмечен как выполненный.",
+        }
+    finally:
+        db.close()
