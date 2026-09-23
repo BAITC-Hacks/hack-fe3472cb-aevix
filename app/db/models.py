@@ -79,3 +79,21 @@ class ActivityHistory(Base):
     assigned_by = Column(String, nullable=True)
 
     employee = relationship("Employee", back_populates="history")
+
+
+class Wallet(Base):
+    __tablename__ = "wallets"
+
+    employee_id = Column(String, ForeignKey("employees.employee_id"), primary_key=True)
+    balance = Column(Integer, nullable=False, default=0)
+
+
+class CoinTransaction(Base):
+    __tablename__ = "coin_transactions"
+
+    transaction_id = Column(String, primary_key=True, index=True)
+    employee_id = Column(String, ForeignKey("employees.employee_id"), nullable=False)
+    event_id = Column(String, nullable=True)
+    amount = Column(Integer, nullable=False)
+    reason = Column(Text, nullable=False)
+    created_at = Column(Date, nullable=False)

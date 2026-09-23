@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="4096" height="1024" viewBox="0 0 640 160" fill="none">
+  <title>Career City</title>
+  <rect x="8" y="8" width="144" height="144" rx="40" fill="#086653"/>
+  <path d="M40 112V77H60V112M69 112V57H89V112M98 112V38H118V112" stroke="#F8FBF5" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M35 126H126" stroke="#A0D6C2" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="46" cy="42" r="11" fill="#E9BC60"/>
+  <text x="180" y="77" font-family="Arial,Helvetica,sans-serif" font-size="55" font-weight="700" letter-spacing="-2" fill="#122F29">Career<tspan fill="#086653"> City</tspan></text>
+  <text x="182" y="110" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="500" letter-spacing="5" fill="#627B72">LEARN. GROW. BUILD.</text>
+</svg>

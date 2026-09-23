@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import type { EmployeeListItem } from '../api'
 import { useI18n } from '../i18n'
 import { Icon } from './Icon'
 
 export const initials = (name: string) =>
   name
+    .trim()
     .split(/\s+/)
+    .filter(Boolean)
     .map((p) => p[0])
     .slice(0, 2)
     .join('')
@@ -18,72 +21,122 @@ interface Props {
 }
 
 export function EmployeePicker({ employees, selectedId, onSelect }: Props) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const dialogId = useId()
+  const titleId = useId()
   const selected = employees.find((e) => e.employee_id === selectedId)
+  const copy = {
+    ru: { title: 'Выберите сотрудника', close: 'Закрыть', empty: 'Никого не нашли. Попробуйте другое имя или роль.', found: 'Найдено', more: 'Показаны первые 200. Уточните поиск.', choose: 'Выбрать сотрудника' },
+    kk: { title: 'Қызметкерді таңдаңыз', close: 'Жабу', empty: 'Ешкім табылмады. Басқа ат немесе рөлді іздеңіз.', found: 'Табылды', more: 'Алғашқы 200 көрсетілген. Іздеуді нақтылаңыз.', choose: 'Қызметкерді таңдау' },
+    en: { title: 'Choose an employee', close: 'Close', empty: 'No employees found. Try another name or role.', found: 'Results', more: 'Showing the first 200. Refine your search.', choose: 'Choose employee' },
+  }[lang]
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
     if (!s) return employees
     return employees.filter((e) =>
-      [e.full_name, e.employee_id, e.role, e.grade, e.department].some((v) => v.toLowerCase().includes(s)),
+      [e.full_name, e.employee_id, e.role, e.grade, e.department].some((v) => (v ?? '').toLowerCase().includes(s)),
     )
   }, [employees, q])
 
   useEffect(() => {
     if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     inputRef.current?.focus()
-    const onKey = (ev: KeyboardEvent) => ev.key === 'Escape' && setOpen(false)
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const trigger = triggerRef.current
+    return () => {
+      document.body.style.overflow = previousOverflow
+      trigger?.focus()
+    }
   }, [open])
+
+  function handleDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setOpen(false)
+      return
+    }
+    if (event.key !== 'Tab') return
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex="0"]')
+    if (!focusable?.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   return (
     <>
-      <button className="picker-btn" onClick={() => setOpen(true)}>
-        <Icon name="search" />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="label">{t('pick_employee')}</div>
-          <div className="value">
-            {selected ? `${selected.full_name} · ${selected.employee_id}` : '—'}
-          </div>
-        </div>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="picker-btn"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? dialogId : undefined}
+        aria-label={`${copy.choose}${selected ? `: ${selected.full_name}` : ''}`}
+        onClick={() => { setQ(''); setOpen(true) }}
+      >
+        <span className="picker-avatar" aria-hidden="true">{selected ? initials(selected.full_name) : <Icon name="people" />}</span>
+        <span className="picker-copy">
+          <span className="picker-name">{selected?.full_name ?? t('pick_employee')}</span>
+          <span className="picker-role">{selected ? `${selected.role} · ${selected.grade}` : copy.choose}</span>
+        </span>
         <Icon name="chevron" />
       </button>
 
-      {open && (
-        <div className="sheet-backdrop" onClick={() => setOpen(false)}>
-          <div className="sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+      {open && createPortal(
+        <div className="sheet-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setOpen(false) }}>
+          <div ref={dialogRef} id={dialogId} className="sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={handleDialogKeyDown}>
+            <div className="sheet-heading">
+              <h2 id={titleId}>{copy.title}</h2>
+              <button type="button" className="sheet-close" aria-label={copy.close} onClick={() => setOpen(false)}><Icon name="close" size={20} /></button>
+            </div>
             <div className="sheet-search">
-              <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} />
+              <div className="sheet-search-field">
+                <Icon name="search" />
+                <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} aria-label={t('search')} autoComplete="off" />
+              </div>
+              <p className="sheet-count" role="status">{copy.found}: {filtered.length}{filtered.length > 200 ? ` · ${copy.more}` : ''}</p>
             </div>
             <div className="sheet-list">
               {filtered.slice(0, 200).map((e) => (
                 <button
                   key={e.employee_id}
+                  type="button"
                   className={`sheet-item ${e.employee_id === selectedId ? 'active' : ''}`}
+                  aria-current={e.employee_id === selectedId ? 'true' : undefined}
                   onClick={() => {
                     onSelect(e.employee_id)
                     setOpen(false)
                     setQ('')
                   }}
                 >
-                  <div className="mini-avatar">{initials(e.full_name)}</div>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="name">{e.full_name}</div>
-                    <div className="sub">
-                      {e.employee_id} · {e.grade} {e.role}
-                      {e.target ? ` → ${e.target.target_grade} ${e.target.target_role}` : ''}
-                    </div>
-                  </div>
+                  <span className="mini-avatar" aria-hidden="true">{initials(e.full_name)}</span>
+                  <span className="sheet-item-copy">
+                    <span className="name">{e.full_name}</span>
+                    <span className="sub">{e.role} · {e.grade}</span>
+                    <span className="sub">{e.department} · {e.employee_id}</span>
+                  </span>
+                  {e.employee_id === selectedId && <Icon name="check" size={18} />}
                 </button>
               ))}
-              {filtered.length === 0 && <div className="state">—</div>}
+              {filtered.length === 0 && <div className="state">{copy.empty}</div>}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )

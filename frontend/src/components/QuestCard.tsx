@@ -1,5 +1,5 @@
 import type { Recommendation } from '../api'
-import { eventInfo } from '../catalog'
+import { eventInfo, eventLabel } from '../catalog'
 import { useI18n, type TKey } from '../i18n'
 import { Icon } from './Icon'
 
@@ -10,25 +10,38 @@ interface Props {
   onComplete: () => void
 }
 
-const fmtDate = (d: string, lang: string) =>
-  new Date(d).toLocaleDateString(lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-GB' : 'ru-RU', { day: 'numeric', month: 'short' })
-
 export function QuestCard({ index, quest, busy, onComplete }: Props) {
   const { t, lang } = useI18n()
   const info = eventInfo(quest.event_id)
   const nextSession = info?.upcoming_sessions?.[0]
+  const locale = lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-GB' : 'ru-RU'
+  const copy = {
+    ru: { relevance: 'Релевантность', details: 'Почему подходит и что даст', skills: 'Навыки после обучения', target: 'цель', selfPaced: 'В своём темпе', completed: 'Уже завершено', similar: 'Похожих занятий завершено', missed: 'Пропуски и отказы учтены', completing: 'Сохраняем…' },
+    kk: { relevance: 'Сәйкестік', details: 'Неге ұсынылады және нәтижесі', skills: 'Оқудан кейінгі дағдылар', target: 'мақсат', selfPaced: 'Өз қарқыныңызбен', completed: 'Аяқталған', similar: 'Аяқталған ұқсас сабақтар', missed: 'Қатыспау мен бас тарту ескерілген', completing: 'Сақталуда…' },
+    en: { relevance: 'Relevance', details: 'Why it fits and what you’ll learn', skills: 'Skills after learning', target: 'target', selfPaced: 'At your own pace', completed: 'Already completed', similar: 'Similar activities completed', missed: 'Missed or declined activities considered', completing: 'Saving…' },
+  }[lang]
+  const score = Number.isFinite(quest.score) ? Math.round(Math.min(1, Math.max(0, quest.score)) * 100) : 0
+  const skill = quest.affected_skills[0]
+  const explanation = skill ? ({
+    ru: `Обучение поможет развить ${skill.skill_name} с уровня ${skill.current_level} до ${skill.expected_after}. Для вашей цели требуется уровень ${skill.required_level}.`,
+    kk: `Оқу ${skill.skill_name} дағдысын ${skill.current_level} деңгейінен ${skill.expected_after} деңгейіне дейін дамытуға көмектеседі. Мақсатыңыз үшін ${skill.required_level} деңгейі қажет.`,
+    en: `Build ${skill.skill_name} from level ${skill.current_level} to ${skill.expected_after}. Your target requires level ${skill.required_level}.`,
+  }[lang]) : quest.explanation || quest.reason
+  const reasons = [...new Set(quest.why_recommended ?? [])]
+  const history = quest.history_signal
+  const sessionDate = nextSession ? new Date(nextSession) : null
+  const validSession = sessionDate && Number.isFinite(sessionDate.getTime()) ? sessionDate : null
 
   return (
     <article className={`quest ${quest.priority}`}>
       <div className="quest-head">
-        <div className="quest-num">{index + 1}</div>
-        <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="quest-num" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>
+        <div className="quest-summary-copy">
           <h3>{quest.quest_title}</h3>
-          {info?.description && <div className="quest-desc">{info.description}</div>}
         </div>
-        <div className="match">
-          <div className="match-val">{Math.round(quest.score * 100)}%</div>
-          <div className="match-cap">match</div>
+        <div className="match" title={copy.relevance}>
+          <span className="match-val">{score}%</span>
+          <span className="match-cap">{copy.relevance}</span>
         </div>
       </div>
 
@@ -36,51 +49,70 @@ export function QuestCard({ index, quest, busy, onComplete }: Props) {
         <span className={`chip ${quest.priority === 'high' ? 'danger' : quest.priority === 'medium' ? 'accent' : 'primary'}`}>
           {t(`priority_${quest.priority}` as TKey)}
         </span>
-        <span className="chip">{quest.quest_type}</span>
-        <span className="chip">{quest.format}</span>
+        <span className="chip">{eventLabel(quest.quest_type, lang)}</span>
+        <span className="chip">{eventLabel(quest.format, lang)}</span>
         <span className="chip">
           <Icon name="clock" size={13} /> {quest.duration_hours} {t('hours')}
         </span>
       </div>
 
-      <div className="gains">
-        {quest.affected_skills.map((s) => (
-          <div key={s.skill_id} className="gain-row">
-            <div className="gain-name">{s.skill_name}</div>
-            <div className="gain-val">
-              {s.current_level} → <b>{s.expected_after}</b> / {s.required_level}
-            </div>
-            <div className="pips" aria-hidden="true">
-              {[1, 2, 3, 4, 5].map((lvl) => (
-                <div
-                  key={lvl}
-                  className={`pip ${lvl <= s.current_level ? 'have' : lvl <= s.expected_after ? 'gain' : ''} ${
-                    lvl <= s.required_level ? 'need' : ''
-                  }`}
-                />
+      <div className="quest-skills">
+        {quest.affected_skills.slice(0, 3).map((skill) => (
+          <span key={skill.skill_id}>{skill.skill_name}</span>
+        ))}
+        {quest.affected_skills.length > 3 && <span>+{quest.affected_skills.length - 3}</span>}
+      </div>
+
+      <details className="quest-details">
+        <summary>
+          <Icon name="spark" size={15} />
+          <span>{copy.details}</span>
+          <Icon name="chevron" size={16} />
+        </summary>
+        <div className="details-body">
+          {info?.description && <p className="quest-desc">{info.description}</p>}
+          {explanation ? <p className="quest-explanation">{explanation}</p> : reasons.length > 0 && (
+            <ul className="recommendation-reasons">
+              {reasons.map((reason) => <li key={reason}>{reason}</li>)}
+            </ul>
+          )}
+          {quest.affected_skills.length > 0 && (
+            <div className="gains">
+              <h4>{copy.skills}</h4>
+              {quest.affected_skills.map((skill) => (
+                <div key={skill.skill_id} className="gain-row">
+                  <div className="gain-name">
+                    {skill.skill_name}
+                    {skill.is_critical && <span className="critical-label">{t('critical')}</span>}
+                  </div>
+                  <div className="gain-val">
+                    {skill.current_level} → <b>{skill.expected_after}</b>
+                    <span> · {copy.target} {skill.required_level}</span>
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="why">
-        <div className="why-title">
-          <Icon name="spark" size={14} /> {t('why')}
+          )}
+          {history && (history.completed_similar > 0 || history.missed_or_declined_similar > 0) && (
+            <div className="history-signal">
+              {history.completed_similar > 0 && <span>{copy.similar}: {history.completed_similar}</span>}
+              {history.missed_or_declined_similar > 0 && <span>{copy.missed}: {history.missed_or_declined_similar}</span>}
+            </div>
+          )}
         </div>
-        {quest.reason}
-      </div>
+      </details>
 
       <div className="quest-foot">
-        {nextSession ? (
+        {validSession ? (
           <span className="session">
-            <Icon name="calendar" size={13} /> {fmtDate(nextSession, lang)}
+            <Icon name="calendar" size={14} />
+            <time dateTime={nextSession}>{validSession.toLocaleDateString(locale, { day: 'numeric', month: 'short' })}</time>
           </span>
         ) : (
-          <span className="session">self-paced</span>
+          <span className="session"><Icon name="clock" size={14} /> {copy.selfPaced}</span>
         )}
-        <button className="btn btn-foot" disabled={busy} onClick={onComplete}>
-          <Icon name="check" size={16} /> {t('mark_done')}
+        <button type="button" className="btn btn-foot" disabled={busy} onClick={onComplete} aria-busy={busy}>
+          <Icon name="check" size={16} /> {busy ? copy.completing : t('mark_done')}
         </button>
       </div>
     </article>

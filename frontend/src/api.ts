@@ -53,6 +53,7 @@ export interface AffectedSkill {
   expected_after: number
   gap_before: number
   gap_after: number
+  is_critical?: boolean
 }
 
 export interface Recommendation {
@@ -66,6 +67,11 @@ export interface Recommendation {
   affected_skills: AffectedSkill[]
   reason: string
   game_message: string
+  title?: string
+  type?: string
+  why_recommended?: string[]
+  explanation?: string
+  history_signal?: { completed_similar: number; missed_or_declined_similar: number; already_completed_this_event: boolean }
 }
 
 export interface RecommendationsResponse {
@@ -86,6 +92,11 @@ export interface GameMap {
   progress_to_next_grade: number
   nodes: { id: string; title: string; status: 'completed' | 'active' | 'locked' }[]
   recommended_quest_ids: string[]
+  city_name?: string
+  center?: { name: string; level: number; wallet_balance: number; progress_to_next_grade: number }
+  districts?: { id: string; name: string; progress: number; status: string; related_skills: string[]; impact_tags: string[]; recommended_event_ids: string[] }[]
+  completed_quest_ids?: string[]
+  quest_board?: { event_id: string; title: string; source: string; score: number }[]
 }
 
 export interface CompleteResponse {
@@ -95,6 +106,9 @@ export interface CompleteResponse {
   progress_to_next_grade_before: number
   progress_to_next_grade_after: number
   message: string
+  coins_earned?: number
+  wallet_balance?: number
+  coin_reason?: string
 }
 
 export interface HrDashboard {
@@ -110,6 +124,10 @@ export interface HrDashboard {
 // В dev-режиме Vite проксирует /api на бэкенд (см. vite.config.ts).
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
+export class ApiError extends Error {
+  constructor(message: string, public status: number) { super(message) }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(BASE + path, init)
   if (!res.ok) {
@@ -120,7 +138,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* тело не JSON */
     }
-    throw new Error(detail)
+    throw new ApiError(detail, res.status)
   }
   return res.json() as Promise<T>
 }

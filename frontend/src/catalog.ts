@@ -53,3 +53,12 @@ export function roleProfile(role: string, grade: string): RoleProfile | undefine
   return roleProfiles.find((p) => p.role === role && p.grade === grade)
 }
 
+
+const eventLabels = {
+  ru: { course: 'Курс', workshop: 'Практикум', certification: 'Сертификация', compliance: 'Обязательное обучение', meetup: 'Встреча', mentoring: 'Менторство', onboarding: 'Адаптация', online: 'Онлайн', offline: 'Очно', self_paced: 'В своём темпе' },
+  kk: { course: 'Курс', workshop: 'Практикум', certification: 'Сертификаттау', compliance: 'Міндетті оқу', meetup: 'Кездесу', mentoring: 'Тәлімгерлік', onboarding: 'Бейімделу', online: 'Онлайн', offline: 'Офлайн', self_paced: 'Өз қарқынымен' },
+  en: { course: 'Course', workshop: 'Workshop', certification: 'Certification', compliance: 'Required learning', meetup: 'Meetup', mentoring: 'Mentoring', onboarding: 'Onboarding', online: 'Online', offline: 'In person', self_paced: 'Self-paced' },
+}
+export function eventLabel(value: string, lang: keyof typeof eventLabels) {
+  return eventLabels[lang][value as keyof typeof eventLabels.ru] ?? value
+}

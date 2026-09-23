@@ -1,4 +1,4 @@
-"""Run with DATABASE_URL pointing to a temporary SQLite database."""
+"""Workspace contract checks; conftest.py supplies a fresh temporary database."""
 import pytest
 from fastapi import HTTPException
 from app.db.database import SessionLocal, init_db
@@ -9,25 +9,6 @@ from app.services.recommendation_service import get_employee_profile, get_employ
 from app.services.progress_service import compute_progress_to_next_grade
 from app.services.game_service import get_game_map
 from app.utils.grade import grade_index, get_role_target
-
-
-@pytest.fixture(autouse=True)
-def isolated_database(tmp_path, monkeypatch):
-    import sys
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    from app.db import database
-    from app.services import hr_service
-    engine = create_engine(f"sqlite:///{tmp_path / 'workspace.sqlite'}")
-    factory = sessionmaker(bind=engine)
-    monkeypatch.setattr(database, 'engine', engine)
-    for name, module in list(sys.modules.items()):
-        if (name.startswith('app.') or module is sys.modules[__name__]) and hasattr(module, 'SessionLocal'):
-            monkeypatch.setattr(module, 'SessionLocal', factory)
-    init_db()
-    seed_demo_data()
-    yield
-    engine.dispose()
 
 
 def test_workspace_consistency():
@@ -41,6 +22,8 @@ def test_workspace_consistency():
         progress = compute_progress_to_next_grade(db.get(Employee, employee_id))
     assert profile['progress_to_next_grade'] == recommendations['progress_to_next_grade'] == city['progress_to_next_grade'] == progress
     assert city['career_level'] == grade_index(profile['grade']) + 1
+    assert city['center']['level'] == city['career_level']
+    assert city['center']['progress_to_next_grade'] == progress
     assert city['recommended_quest_ids'] == [q['event_id'] for q in recommendations['recommendations']]
     data = catalog()
     assert any(p['role'] == profile['target_role'] and p['grade'] == profile['target_grade'] for p in data['role_profiles'])
@@ -57,10 +40,12 @@ def test_workspace_consistency():
     history = [h for h in get_employee_trajectory(employee_id) if h['event_id'] == event_id]
     assert not any(h['status'] == 'in_progress' for h in history)
     assert any(h['status'] == 'completed' and h['completion_pct'] == 100 for h in history)
-    with pytest.raises(HTTPException) as error:
-        complete_quest(employee_id, event_id)
-    assert error.value.status_code == 409
-    assert get_employee_profile(employee_id)['skills'] == after['skills']
+    # EV_036 — регулярный клуб, по правилам датасета его можно проходить повторно
+    if event_id != 'EV_036':
+        with pytest.raises(HTTPException) as error:
+            complete_quest(employee_id, event_id)
+        assert error.value.status_code == 409
+        assert get_employee_profile(employee_id)['skills'] == after['skills']
 
 
 def test_target_and_missing_employee():

@@ -1,9 +1,9 @@
 import type { Page } from '../routes'
 import { EmployeeSection } from './EmployeeSection'
-import { useCallback, useEffect, useState } from 'react'
-import { api, type EmployeeProfile, type RecommendationsResponse, type GameMap, type TrajectoryItem } from '../api'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { api, ApiError, type EmployeeProfile, type RecommendationsResponse, type GameMap, type TrajectoryItem } from '../api'
 import { cityCopy } from '../cityCopy'
-import { eventTitle } from '../catalog'
+import { eventInfo, eventTitle, eventLabel } from '../catalog'
 import { Icon } from '../components/Icon'
 import { ProgressRing } from '../components/ProgressRing'
 import { useI18n } from '../i18n'
@@ -18,10 +18,15 @@ interface Data {
 export function EmployeePage({ employeeId, onToast, query, page, navigate }: { employeeId: string; onToast: (msg: string) => void; query: string; page: Exclude<Page, 'hr'>; navigate: (page: Page) => void }) {
   const { t, lang } = useI18n()
   const c = cityCopy[lang]
-  const jump = (id: string) => navigate(id.startsWith('quest-') ? 'recommendations' : id as Page)
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   const load = useCallback(async () => {
     setError(null)
@@ -48,12 +53,15 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
     try {
       const res = await api.complete(employeeId, eventId)
       await load()
+      if (!mounted.current) return
       onToast(
         `${t('toast_done')}: ${res.completed_quest} · ${Math.round(res.progress_to_next_grade_before)}% → ${Math.round(
           res.progress_to_next_grade_after,
-        )}%`,
+        )}%${res.coins_earned ? ` · +${res.coins_earned} ${c.balance.toLowerCase()}` : ''}`,
       )
     } catch (e) {
+      if (e instanceof ApiError && e.status === 409) await load()
+      if (!mounted.current) return
       onToast(`⚠ ${(e as Error).message}`)
     } finally {
       setBusy(null)
@@ -86,52 +94,31 @@ export function EmployeePage({ employeeId, onToast, query, page, navigate }: { e
   const progress = recs.progress_to_next_grade ?? p.progress_to_next_grade
 
   const completed = history.filter((item) => item.status === 'completed')
-  const recent = [...completed].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3)
+  const active = history.filter((item) => ['in_progress', 'overdue'].includes(item.status))
+  const current = active[0]
   const first = recs.recommendations[0]
-  const filtered = recs.recommendations.filter((q) => `${q.quest_title} ${q.reason} ${q.affected_skills.map((s) => s.skill_name).join(' ')}`.toLowerCase().includes(query.toLowerCase().trim()))
+  const currentInfo = current ? eventInfo(current.event_id) : null
+  const wallet = map.center?.wallet_balance
 
   if (page !== 'home') return <EmployeeSection page={page} profile={p} recs={recs} history={history} map={map} query={query} busy={busy !== null} onComplete={complete} navigate={navigate} />
 
   return (
-    <div className="city-dashboard" id="home">
-      <section className="city-hero" aria-labelledby="city-title">
-        <div className="hero-copy">
-          <span className="eyebrow">{c.eyebrow}</span>
-          <h1 id="city-title">CAREER <span>CITY</span></h1>
-          <p className="hero-headline">{c.headline}<br />{c.subline}</p>
-          <div className="city-stats">
-            <div><Icon name="city" size={29} /><span><b>{Object.keys(p.skills).length}</b><small>{c.buildings}</small></span></div>
-            <div><Icon name="trophy" size={29} /><span><b>{completed.length}</b><small>{c.completed}</small></span></div>
-            <div><Icon name="leaf" size={29} /><span><b>{recs.recommendations.length}</b><small>{c.available}</small></span></div>
-          </div>
-          <button className="btn hero-cta" onClick={() => jump('learning')}>{c.continue}<Icon name="arrow" /></button>
-          <button className="text-button how-link" onClick={() => jump('city')}><span className="play-circle"><Icon name="play" size={14} /></span>{c.how}</button>
-        </div>
-        <div className="hero-progress card">
-          <h2>{c.progress}<Icon name="leaf" /></h2>
-          <div className="progress-content"><ProgressRing value={progress} caption={t('progress')} /><div><small>{c.target}</small><strong>{recs.target_grade}</strong><span>{recs.target_role}</span></div></div>
-        </div>
-        <div className="city-level"><Icon name="flag" size={20} /><span>{c.level}<strong>{p.grade}</strong></span></div>
-        <button className="city-pin pin-skills" onClick={() => jump('skills')}><Icon name="shield" />{c.skills}<Icon name="arrow" size={13} /></button>
-        <button className="city-pin pin-career" onClick={() => jump('city')}><Icon name="city" />{c.how}<Icon name="arrow" size={13} /></button>
+    <div className="dashboard">
+      <header className="page-head home-heading"><div><span className="eyebrow">{c.greeting}</span><h1>{p.full_name.split(' ')[0]}<span className="greeting-dot">.</span></h1><p>{c.overview}</p></div><span className="chip primary">{p.grade} · {p.role}</span></header>
+      <section className="dashboard-hero">
+        <div className="dashboard-hero-copy"><span className="eyebrow">CAREER CITY</span><h2>{c.headline}<br />{c.subline}</h2><p>{c.homeNote}</p><button className="btn" onClick={() => navigate(current ? 'learning' : 'recommendations')}>{current ? c.continue : c.explore}<Icon name="arrow" /></button></div>
+        <span className="hero-caption"><Icon name="city" size={16} />{c.city}</span>
       </section>
-
-      {query.trim() && <div className="search-summary" role="status"><Icon name="search" /><span>{filtered.length ? `${c.recommendations}: ${filtered.length}` : c.noResults}</span><button className="text-button" onClick={() => jump('recommendations')}>{c.all}<Icon name="arrow" /></button></div>}
-      <div className="overview-grid">
-        <section className="card next-card">
-          <h2 className="card-title">{c.current}<button className="text-button" onClick={() => jump('learning')}><Icon name="arrow" /></button></h2>
-          {first ? <div className="next-course"><div className="course-art"><Icon name="book" size={40} /><span>CAREER<br />ACADEMY</span></div><div><span className="course-kicker">{first.quest_type}</span><h3>{first.quest_title}</h3><span className="chip primary">{first.format}</span><p className="course-duration"><Icon name="clock" size={15} />{first.duration_hours} {t('hours')}</p><button className="text-button" onClick={() => jump(`quest-${first.event_id}`)}>{c.details}<Icon name="arrow" size={15} /></button></div></div> : <p className="hero-sub">{t('no_recs')}</p>}
+      <div className="dashboard-metrics">
+        <button className="metric" onClick={() => navigate('learning')}><span className="metric-icon"><Icon name="book" size={21} /></span><span><small>{c.inProgress}</small><strong>{active.length}</strong></span><Icon name="arrow" size={16} /></button>
+        <button className="metric" onClick={() => navigate('achievements')}><span className="metric-icon gold"><Icon name="trophy" size={21} /></span><span><small>{c.completed}</small><strong>{new Set(completed.map((item) => item.event_id)).size}</strong></span><Icon name="arrow" size={16} /></button>
+        <button className="metric" onClick={() => navigate('city')}><span className="metric-icon"><Icon name="leaf" size={21} /></span><span><small>{wallet !== undefined ? c.balance : c.skills}</small><strong>{wallet !== undefined ? wallet.toLocaleString(lang) : Object.keys(p.skills).length}</strong></span><Icon name="arrow" size={16} /></button>
+      </div>
+      <div className="dashboard-bottom">
+        <section className="card next-step"><div className="card-title"><h2>{current ? c.learning : c.nextStep}</h2><span className="chip">{current ? t(current.status === 'overdue' ? 'status_overdue' : 'status_in_progress') : c.recommendations}</span></div>
+          {current || first ? <div className="next-course"><div className="course-art"><Icon name="book" size={34} /></div><div><h3>{current ? eventTitle(current.event_id) : first.quest_title}</h3><p>{current ? `${current.completion_pct}% · ${eventLabel(currentInfo?.format ?? '', lang)}` : `${first.duration_hours} ${t('hours')} · ${eventLabel(first.format, lang)}`}</p>{current && <progress value={current.completion_pct} max={100} aria-label={c.progress} />}<button className="text-button" onClick={() => navigate(current ? 'learning' : 'recommendations')}>{current ? c.continue : c.details}<Icon name="arrow" size={16} /></button></div></div> : <p className="state">{t('no_recs')}</p>}
         </section>
-        <section className="card ai-card">
-          <h2 className="card-title">{c.ai}<button className="text-button" onClick={() => jump('recommendations')}>{c.all}<Icon name="arrow" size={14} /></button></h2>
-          {recs.recommendations.slice(0, 3).map((q, i) => <button className="recommendation-row" key={q.event_id} onClick={() => jump(`quest-${q.event_id}`)}><span className={`rec-icon tone-${i}`}><Icon name={i === 0 ? 'code' : i === 1 ? 'people' : 'leaf'} size={25} /></span><span><strong>{q.quest_title}</strong><small>{q.affected_skills.map((s) => s.skill_name).join(' · ')}</small></span><span className="round-arrow"><Icon name="arrow" size={16} /></span></button>)}
-          {!recs.recommendations.length && <p className="hero-sub">{t('no_recs')}</p>}
-        </section>
-        <section className="card achievements-card">
-          <h2 className="card-title">{c.recent}<button className="text-button" onClick={() => jump('achievements')}><Icon name="arrow" /></button></h2>
-          {recent.map((item, i) => <div className="achievement-row" key={item.record_id}><span className={`medal medal-${i}`}><Icon name={i === 0 ? 'shield' : 'trophy'} size={24} /></span><div><small>{t('status_completed')}</small><strong>{eventTitle(item.event_id)}</strong></div><time>{new Date(item.date).toLocaleDateString(lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-GB' : 'ru-RU', { day: 'numeric', month: 'short' })}</time></div>)}
-          {!recent.length && <p className="hero-sub">{c.empty}</p>}
-        </section>
+        <section className="card goal-card"><div className="card-title"><h2>{c.progress}</h2><button className="text-button" onClick={() => navigate('skills')}>{c.details}<Icon name="arrow" size={15} /></button></div><div className="goal-content"><ProgressRing value={progress} caption={t('progress')} size={100} /><div><small>{c.target}</small><h3>{recs.target_grade}</h3><p>{recs.target_role}</p></div></div></section>
       </div>
     </div>
   )
